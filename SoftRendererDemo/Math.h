@@ -55,4 +55,7 @@ struct Mat4 {
 
     // 透视投影：垂直视角(fovY, 角度)，宽高比(aspect)，近平面(zNear)，远平面(zFar)
     static Mat4 perspective(float fovY, float aspect, float zNear, float zFar);
+
+    // 视口变换：输入屏幕宽高
+    static Mat4 viewport(float width, float height);
 };

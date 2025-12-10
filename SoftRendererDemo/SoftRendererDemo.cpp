@@ -1,46 +1,62 @@
-﻿// SoftRendererDemo.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
-//
-
-#include <iostream>
+﻿#include <iostream>
 #include "Math.h"
+#include "Rasterizer.h" // 引入光栅化器
 
-int main()
-{
-    // 1. 设置场景
-     // 我们的物体在 (0, 0, -5) 的位置 (屏幕里面5米)
-    Vec4f worldPos(0.0f, 0.0f, -5.0f, 1.0f);
+int main() {
+    // 1. 初始化光栅化器 (800x600 分辨率)
+    const int width = 800;
+    const int height = 600;
+    Rasterizer r(width, height);
 
-    // 2. 构建 View Matrix (摄像机)
-    // 摄像机在原点 (0,0,0)，看向 (0,0,-1)，头顶朝上 (0,1,0)
+    // 2. 准备 MVP 矩阵 (和之前完全一样)
     Vec3f eye(0, 0, 0);
     Vec3f center(0, 0, -1);
     Vec3f up(0, 1, 0);
     Mat4 view = Mat4::lookAt(eye, center, up);
+    Mat4 proj = Mat4::perspective(45.0f, (float)width / (float)height, 0.1f, 100.0f);
+    Mat4 viewport = Mat4::viewport(width, height);
 
-    // 3. 构建 Projection Matrix (透视)
-    // 45度视角，16:9 屏幕，最近能看 0.1米，最远能看 100米
-    Mat4 proj = Mat4::perspective(45.0f, 16.0f / 9.0f, 0.1f, 100.0f);
+    // 3. 定义一个三角形 (位于 Z = -5)
+    Vec4f v1(0.0f, 0.5f, -2.0f, 1.0f); // 顶
+    Vec4f v2(-0.5f, -0.5f, -2.0f, 1.0f); // 左下
+    Vec4f v3(0.5f, -0.5f, -2.0f, 1.0f); // 右下
+    Vec4f raw_verts[] = { v1, v2, v3 };
 
-    // 4. 组合矩阵 (MVP)
-    // 假设模型矩阵是单位矩阵 (物体没动)
-    Mat4 model = Mat4::identity();
-    Mat4 mvp = proj * view * model; // 注意顺序！P * V * M
+    // 【新增】定义三个顶点的颜色 (RGB)
+    Vec3f c1(1.0f, 0.0f, 0.0f); // 红色
+    Vec3f c2(0.0f, 1.0f, 0.0f); // 绿色
+    Vec3f c3(0.0f, 0.0f, 1.0f); // 蓝色
+    Vec3f colors[] = { c1, c2, c3 };
 
-    // 5. 变换点
-    Vec4f clipPos = mvp * worldPos;
+    // 用于存储变换后的屏幕坐标
+    Vec3f screen_verts[3];
 
-    std::cout << "Clip Space Pos: "
-        << clipPos.x << ", " << clipPos.y << ", "
-        << clipPos.z << ", " << clipPos.w << std::endl;
+    // 4. 顶点着色器流程 (Vertex Shader Pipeline)
+    for (int i = 0; i < 3; i++) {
+        // MVP 变换 -> Clip Space
+        Vec4f clip = proj * view * raw_verts[i];
 
-    // 6. 模拟 GPU 的“透视除法” (Perspective Divide)
-    // 这一步通常是显卡自动做的，把坐标变回 -1 到 1 的范围内
-    if (clipPos.w != 0) {
-        float x_ndc = clipPos.x / clipPos.w;
-        float y_ndc = clipPos.y / clipPos.w;
-        std::cout << "Screen(NDC) Pos: " << x_ndc << ", " << y_ndc << std::endl;
-        // 预期：因为物体在正中央，xy 应该是 (0, 0)
+        // 透视除法 -> NDC
+        // 注意：这里除以 w 非常关键，否则没有近大远小
+        Vec3f ndc;
+        ndc.x = clip.x / clip.w;
+        ndc.y = clip.y / clip.w;
+        ndc.z = clip.z / clip.w;
+
+        // 视口变换 -> Screen Space
+        Vec4f screen = viewport * Vec4f(ndc.x, ndc.y, ndc.z, 1.0f);
+
+        // 存入数组 (只取 x, y, z)
+        screen_verts[i] = Vec3f(screen.x, screen.y, screen.z);
     }
+
+    // 5. 光栅化 (Rasterization)
+    // 传入三个屏幕坐标，和一个颜色 (比如绿色)
+    r.clear(Vec3f(0.1f, 0.1f, 0.1f)); // 背景设为深灰色
+    r.draw_triangle(screen_verts[0], screen_verts[1], screen_verts[2], colors);
+
+    // 6. 保存结果
+    r.save_to_ppm("rainbow_triangle.ppm");
 
     return 0;
 }

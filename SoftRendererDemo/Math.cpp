@@ -271,3 +271,23 @@ Mat4 Mat4::perspective(float fovY, float aspect, float zNear, float zFar) {
 
     return res;
 }
+
+Mat4 Mat4::viewport(float width, float height) {
+    Mat4 res = identity();
+
+    // 1. X轴变换: [-1, 1] -> [0, width]
+    res.m[0][0] = width / 2.0f;
+    res.m[0][3] = width / 2.0f;
+
+    // 2. Y轴变换: [-1, 1] -> [0, height]
+    // 注意：这里假设屏幕原点在左下角（数学习惯）。
+    // 如果你的屏幕原点在左上角（如 Windows 窗口、图片），需要把高度反转。公式变体：y_screen = (1 - y_ndc) * (h/2)
+    res.m[1][1] = height / 2.0f;
+    res.m[1][3] = height / 2.0f;
+
+    // 3. Z轴变换: [-1, 1] -> [0, 1] (标准深度范围)
+    res.m[2][2] = 0.5f;
+    res.m[2][3] = 0.5f;
+
+    return res;
+}
