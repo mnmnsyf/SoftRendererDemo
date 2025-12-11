@@ -12,8 +12,8 @@ public:
 	// 清空画布
 	void clear(const Vec3f& color);
 
-	// 设置像素颜色（写入到超采样的 FrameBuffer）
-	// 注意：这里的 x, y 是超采样后的坐标 (0 ~ width*2)
+	// 设置像素颜色
+	// 为了兼容性，如果直接设置一个像素，我们会把该像素内的 4 个采样点都设为这个颜色
 	void set_pixel(int x, int y, const Vec3f& color);
 
 	// 核心：画三角形
@@ -31,17 +31,18 @@ public:
 private:
 	int width, height; // 逻辑宽高
 
-	// SSAA 倍率 (2 表示 2x2 超采样)
-	const int SSAA = 2;
+	// 这里的 4 代表 RGSS 的 4 个采样点
+	const int SAMPLE_COUNT = 4;
 
-	// Frame buffer: 存储 SSAA * width * SSAA * height 的颜色
+	// Flattened Buffer:
+	// 内存布局：Pixel_0[Sample0, Sample1, Sample2, Sample3], Pixel_1[...]
+	// 总大小 = width * height * 4
 	std::vector<Vec3f> frame_buffer;
-
-	// Depth buffer: 存储 SSAA * width * SSAA * height 的深度
 	std::vector<float> depth_buffer;
 
-	// 辅助：获取 1D 索引 (基于超采样后的宽高)
-	int get_index(int x, int y);
+	// 获取特定像素的特定采样点的索引
+	// sample_idx 范围 0~3
+	int get_index(int x, int y, int sample_idx);
 
 	// 辅助：判断点是否在三角形内
 	bool inside(float x, float y, const Vec3f* _v);
