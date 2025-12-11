@@ -1,101 +1,112 @@
-#include "Rasterizer.h"
-#include <algorithm> // ÓÃÓÚ std::min, std::max
-#include <fstream>   // ÓÃÓÚÎÄ¼şĞ´Èë
+ï»¿#include "Rasterizer.h"
+#include <algorithm> // ç”¨äº std::min, std::max
+#include <fstream>   // ç”¨äºæ–‡ä»¶å†™å…¥
 #include <iostream>
-#include <tuple> // ÓÃÓÚ·µ»Ø¶à¸öÖµ
+#include <tuple> // ç”¨äºè¿”å›å¤šä¸ªå€¼
 
 Rasterizer::Rasterizer(int w, int h) : width(w), height(h) {
-    // ³õÊ¼»¯ FrameBuffer£¬´óĞ¡Îª w * h£¬Ä¬ÈÏÈ«ºÚ
+    // åˆå§‹åŒ– FrameBufferï¼Œå¤§å°ä¸º w * hï¼Œé»˜è®¤å…¨é»‘
     frame_buffer.resize(w * h, Vec3f(0, 0, 0));
+	//åˆå§‹åŒ–æ·±åº¦ç¼“å†²åŒºå¤§å°
+	depth_buffer.resize(w * h);
 }
 
 void Rasterizer::clear(const Vec3f& color) {
+    // 1. æ¸…ç©ºé¢œè‰²ç¼“å†²
     std::fill(frame_buffer.begin(), frame_buffer.end(), color);
+	//2. æ¸…ç©ºæ·±åº¦ç¼“å†²
+	// å°†æ‰€æœ‰æ·±åº¦å€¼åˆå§‹åŒ–ä¸ºæ­£æ— ç©·å¤§ (è¡¨ç¤ºè¯¥åƒç´ ç›®å‰è·ç¦»æ‘„åƒæœºæ— é™è¿œ)
+	std::fill(depth_buffer.begin(), depth_buffer.end(), std::numeric_limits<float>::infinity());
 }
 
 void Rasterizer::set_pixel(int x, int y, const Vec3f& color) {
-    // 1. ±ß½ç¼ì²é (ÕâÒ»²½·Ç³£ÖØÒª£¡)
+    // 1. è¾¹ç•Œæ£€æŸ¥ (è¿™ä¸€æ­¥éå¸¸é‡è¦ï¼)
     if (x < 0 || x >= width || y < 0 || y >= height) return;
 
-    // 2. ¼ÆËãÒ»Î¬Ë÷Òı
-    // ÎÒÃÇÏ°¹ß (0,0) ÔÚ×óÏÂ½Ç£¬µ«´æ´¢Í¨³£ÊÇ´Ó×óÉÏ¿ªÊ¼»òÕßÏßĞÔ´æ´¢
-    // ÕâÀïÎÒÃÇ¶¨Òå£ºindex = y * width + x
-    // ÕâÑù y=0 ÊÇµÚÒ»ĞĞ£¨×îÏÂÃæ£©£¬y=height-1 ÊÇ×îÉÏÃæ
-    int index = y * width + x;
+    // 2. è®¡ç®—ä¸€ç»´ç´¢å¼•
+    int index = get_index(x, y);
     frame_buffer[index] = color;
 }
 
 // =============================================
-// ºËĞÄËã·¨£ºÅĞ¶ÏµãÊÇ·ñÔÚÈı½ÇĞÎÄÚ (ÀûÓÃ²æ³Ë)
+// æ ¸å¿ƒç®—æ³•ï¼šåˆ¤æ–­ç‚¹æ˜¯å¦åœ¨ä¸‰è§’å½¢å†… (åˆ©ç”¨å‰ä¹˜)
 // =============================================
-// Ô­Àí£ºÈç¹ûµã P ÔÚÈı½ÇĞÎ ABC ÄÚ²¿£¬ÄÇÃ´£º
-// P ÔÚ AB µÄ×ó±ß£¬P ÔÚ BC µÄ×ó±ß£¬P ÔÚ CA µÄ×ó±ß (¼ÙÉèÄæÊ±Õë)
-// ÊıÑ§ÉÏÌåÏÖÎª£º²æ³Ë½á¹û Z ÖµÍ¬ºÅ
+// åŸç†ï¼šå¦‚æœç‚¹ P åœ¨ä¸‰è§’å½¢ ABC å†…éƒ¨ï¼Œé‚£ä¹ˆï¼š
+// P åœ¨ AB çš„å·¦è¾¹ï¼ŒP åœ¨ BC çš„å·¦è¾¹ï¼ŒP åœ¨ CA çš„å·¦è¾¹ (å‡è®¾é€†æ—¶é’ˆ)
+// æ•°å­¦ä¸Šä½“ç°ä¸ºï¼šå‰ä¹˜ç»“æœ Z å€¼åŒå·
 static float cross_product_2d(float x1, float y1, float x2, float y2) {
     return x1 * y2 - x2 * y1;
 }
 
+int Rasterizer::get_index(int x, int y)
+{
+    // æˆ‘ä»¬ä¹ æƒ¯ (0,0) åœ¨å·¦ä¸‹è§’ï¼Œä½†å­˜å‚¨é€šå¸¸æ˜¯ä»å·¦ä¸Šå¼€å§‹æˆ–è€…çº¿æ€§å­˜å‚¨
+    // è¿™é‡Œæˆ‘ä»¬å®šä¹‰ï¼šindex = y * width + x
+    // è¿™æ · y=0 æ˜¯ç¬¬ä¸€è¡Œï¼ˆæœ€ä¸‹é¢ï¼‰ï¼Œy=height-1 æ˜¯æœ€ä¸Šé¢
+	return y * width + x;
+}
+
 bool Rasterizer::inside(float x, float y, const Vec3f* _v) {
-    // ×¼±¸Èı¸ö¶¥µãµÄ×ø±ê
+    // å‡†å¤‡ä¸‰ä¸ªé¡¶ç‚¹çš„åæ ‡
     const Vec3f& A = _v[0];
     const Vec3f& B = _v[1];
     const Vec3f& C = _v[2];
 
-    // ×¼±¸µã P µÄ×ø±ê
-    // ×¢Òâ£ºÎÒÃÇÖ»¹ØĞÄ xy Æ½Ãæ
+    // å‡†å¤‡ç‚¹ P çš„åæ ‡
+    // æ³¨æ„ï¼šæˆ‘ä»¬åªå…³å¿ƒ xy å¹³é¢
 
-    // ¼ÆËãÈı¸ö²æ³Ë
-    // 1. ±ß AB ºÍ ÏòÁ¿ AP
+    // è®¡ç®—ä¸‰ä¸ªå‰ä¹˜
+    // 1. è¾¹ AB å’Œ å‘é‡ AP
     float cp1 = cross_product_2d(B.x - A.x, B.y - A.y, x - A.x, y - A.y);
-    // 2. ±ß BC ºÍ ÏòÁ¿ BP
+    // 2. è¾¹ BC å’Œ å‘é‡ BP
     float cp2 = cross_product_2d(C.x - B.x, C.y - B.y, x - B.x, y - B.y);
-    // 3. ±ß CA ºÍ ÏòÁ¿ CP
+    // 3. è¾¹ CA å’Œ å‘é‡ CP
     float cp3 = cross_product_2d(A.x - C.x, A.y - C.y, x - C.x, y - C.y);
 
-    // Èç¹ûÈı¸ö²æ³Ë½á¹û·ûºÅÏàÍ¬£¨¶¼ÔÚ×ó²à»ò¶¼ÔÚÓÒ²à£©£¬ÔòÔÚÄÚ²¿
+    // å¦‚æœä¸‰ä¸ªå‰ä¹˜ç»“æœç¬¦å·ç›¸åŒï¼ˆéƒ½åœ¨å·¦ä¾§æˆ–éƒ½åœ¨å³ä¾§ï¼‰ï¼Œåˆ™åœ¨å†…éƒ¨
     return (cp1 >= 0 && cp2 >= 0 && cp3 >= 0) || (cp1 <= 0 && cp2 <= 0 && cp3 <= 0);
 }
 
 // =============================================
-// ¸¨Öú£º¼ÆËãÖØĞÄ×ø±ê
-// ÊäÈë£ºÈı½ÇĞÎÈı¸öµã A, B, C ºÍ µ±Ç°ÏñËØ×ø±ê P(x, y)
-// Êä³ö£ºtuple(alpha, beta, gamma)
+// è¾…åŠ©ï¼šè®¡ç®—é‡å¿ƒåæ ‡
+// è¾“å…¥ï¼šä¸‰è§’å½¢ä¸‰ä¸ªç‚¹ A, B, C å’Œ å½“å‰åƒç´ åæ ‡ P(x, y)
+// è¾“å‡ºï¼štuple(alpha, beta, gamma)
 // =============================================
 static std::tuple<float, float, float> compute_barycentric_2d(float x, float y, const Vec3f& v0, const Vec3f& v1, const Vec3f& v2) {
     // ---------------------------------------------------------
-    // Ê¹ÓÃ±ê×¼µÄ´úÊı¹«Ê½¼ÆËãÖØĞÄ×ø±ê
-    // ÕâÖÖĞ´·¨±ÈÖ±½ÓÓÃ²æ³Ë¸ü²»ÈİÒ×³ö´í£¬ÒòÎªËüÃ÷È·ÁËÃ¿Ò»ÏîµÄ´úÊı·ûºÅ
+    // ä½¿ç”¨æ ‡å‡†çš„ä»£æ•°å…¬å¼è®¡ç®—é‡å¿ƒåæ ‡
+    // è¿™ç§å†™æ³•æ¯”ç›´æ¥ç”¨å‰ä¹˜æ›´ä¸å®¹æ˜“å‡ºé”™ï¼Œå› ä¸ºå®ƒæ˜ç¡®äº†æ¯ä¸€é¡¹çš„ä»£æ•°ç¬¦å·
     // ---------------------------------------------------------
 
-    // 1. ¼ÆËã·ÖÄ¸ (×ÜÃæ»ıµÄ 2 ±¶)
-    // ¹«Ê½: (y1 - y2) * x0 + (x2 - x1) * y0 + x1 * y2 - x2 * y1
+    // 1. è®¡ç®—åˆ†æ¯ (æ€»é¢ç§¯çš„ 2 å€)
+    // å…¬å¼: (y1 - y2) * x0 + (x2 - x1) * y0 + x1 * y2 - x2 * y1
     float c1 = (v1.y - v2.y) * v0.x + (v2.x - v1.x) * v0.y + v1.x * v2.y - v2.x * v1.y;
 
-    // Èç¹ûÃæ»ı½Ó½ü0£¬Ö±½ÓÊÓÎªÎŞĞ§
+    // å¦‚æœé¢ç§¯æ¥è¿‘0ï¼Œç›´æ¥è§†ä¸ºæ— æ•ˆ
     if (std::abs(c1) < 1e-5) return { -1, 1, 1 };
 
-    // 2. ¼ÆËã Alpha (¶ÔÓ¦ v0 µÄÈ¨ÖØ)
-    // Ê¹ÓÃµã P(x,y) Ìæ»»¹«Ê½ÖĞµÄ v0
+    // 2. è®¡ç®— Alpha (å¯¹åº” v0 çš„æƒé‡)
+    // ä½¿ç”¨ç‚¹ P(x,y) æ›¿æ¢å…¬å¼ä¸­çš„ v0
     float c2 = (v1.y - v2.y) * x + (v2.x - v1.x) * y + v1.x * v2.y - v2.x * v1.y;
     float alpha = c2 / c1;
 
-    // 3. ¼ÆËã Beta (¶ÔÓ¦ v1 µÄÈ¨ÖØ)
-    // Ê¹ÓÃµã P(x,y) Ìæ»»¹«Ê½ÖĞµÄ v1 (×¢Òâ¹«Ê½½á¹¹±ä»¯: v0, P, v2)
-    // ¹«Ê½: (y2 - y0) * x + (x0 - x2) * y + x2 * y0 - x0 * y2
+    // 3. è®¡ç®— Beta (å¯¹åº” v1 çš„æƒé‡)
+    // ä½¿ç”¨ç‚¹ P(x,y) æ›¿æ¢å…¬å¼ä¸­çš„ v1 (æ³¨æ„å…¬å¼ç»“æ„å˜åŒ–: v0, P, v2)
+    // å…¬å¼: (y2 - y0) * x + (x0 - x2) * y + x2 * y0 - x0 * y2
     float c3 = (v2.y - v0.y) * x + (v0.x - v2.x) * y + v2.x * v0.y - v0.x * v2.y;
     float beta = c3 / c1;
 
-    // 4. Gamma ×Ô¶¯²¹Æë
+    // 4. Gamma è‡ªåŠ¨è¡¥é½
     float gamma = 1.0f - alpha - beta;
 
     return { alpha, beta, gamma };
 }
 
 // =============================================
-// ºËĞÄÁ÷³Ì£º¹âÕ¤»¯Èı½ÇĞÎ
+// æ ¸å¿ƒæµç¨‹ï¼šå…‰æ …åŒ–ä¸‰è§’å½¢
 // =============================================
 void Rasterizer::draw_triangle(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const Vec3f* colors) {
-    // 1. °üÎ§ºĞ¼ÆËã (±£³Ö²»±ä)
+    // 1. åŒ…å›´ç›’è®¡ç®— (ä¿æŒä¸å˜)
     float min_x = std::min({ v0.x, v1.x, v2.x });
     float max_x = std::max({ v0.x, v1.x, v2.x });
     float min_y = std::min({ v0.y, v1.y, v2.y });
@@ -106,54 +117,67 @@ void Rasterizer::draw_triangle(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2
     int y_start = std::max(0, (int)floor(min_y));
     int y_end = std::min(height - 1, (int)ceil(max_y));
 
-    // 2. ±éÀúÏñËØ
+    // 2. éå†åƒç´ 
     for (int y = y_start; y <= y_end; y++) {
         for (int x = x_start; x <= x_end; x++) {
-            // ²ÉÑùÖĞĞÄµã
+            // é‡‡æ ·ä¸­å¿ƒç‚¹
             float px = x + 0.5f;
             float py = y + 0.5f;
 
-            // 3. ¼ÆËãÖØĞÄ×ø±ê
+            // 3. è®¡ç®—é‡å¿ƒåæ ‡
             auto [alpha, beta, gamma] = compute_barycentric_2d(px, py, v0, v1, v2);
 
-            // 4. ÅĞ¶ÏÊÇ·ñÔÚÈı½ÇĞÎÄÚ
-            // Ö»ÒªÓĞÒ»¸ö·ÖÁ¿Ğ¡ÓÚ 0£¬ËµÃ÷ÔÚÈı½ÇĞÎÍâÃæ
+            // 4. åˆ¤æ–­æ˜¯å¦åœ¨ä¸‰è§’å½¢å†…
+            // åªè¦æœ‰ä¸€ä¸ªåˆ†é‡å°äº 0ï¼Œè¯´æ˜åœ¨ä¸‰è§’å½¢å¤–é¢
             if (alpha >= 0 && beta >= 0 && gamma >= 0) {
 
-                // 5. ¡¾ºËĞÄÂß¼­¡¿ÑÕÉ«²åÖµ
-                // Color = c0 * alpha + c1 * beta + c2 * gamma
-                Vec3f interpolated_color =
-                    colors[0] * alpha +
-                    colors[1] * beta +
-                    colors[2] * gamma;
+				// è®¡ç®—å½“å‰æ’å€¼çš„ Z å€¼
+				float z_interpolated = alpha * v0.z + beta * v1.z + gamma * v2.z;
 
-                // Ğ´Èë Framebuffer
-                set_pixel(x, y, interpolated_color);
+				// è·å–ç´¢å¼•
+				int index = get_index(x, y);
+
+				// æ·±åº¦æµ‹è¯• (Z-Buffer Check)
+				// å¦‚æœå½“å‰åƒç´ æ¯”æ·±åº¦ç¼“å­˜ä¸­çš„å€¼æ›´è¿‘ï¼ˆæ›´å°ï¼‰ï¼Œåˆ™é€šè¿‡æµ‹è¯•
+				if (z_interpolated < depth_buffer[index]) {
+
+					// 1. æ›´æ–°æ·±åº¦ç¼“å†²åŒº
+                    depth_buffer[index] = z_interpolated;
+
+					// 2. æ’å€¼è®¡ç®—é¢œè‰²
+					Vec3f interpolated_color =
+						colors[0] * alpha +
+						colors[1] * beta +
+						colors[2] * gamma;
+
+					// 3. æ›´æ–°é¢œè‰²ç¼“å†²åŒº (å¤ç”¨ set_pixel)
+					set_pixel(x, y, interpolated_color);
+				}
             }
         }
     }
 }
 
 // =============================================
-// µ¼³öÍ¼Æ¬ PPM ¸ñÊ½
+// å¯¼å‡ºå›¾ç‰‡ PPM æ ¼å¼
 // =============================================
 void Rasterizer::save_to_ppm(const char* filename) {
     std::ofstream ofs(filename);
 
-    // Ğ´Èë PPM Í·²¿
-    // P3 ±íÊ¾ ASCII ¸ñÊ½£¬½Ó×ÅÊÇ ¿í ¸ß£¬×îºóÊÇ×î´óÑÕÉ«Öµ 255
+    // å†™å…¥ PPM å¤´éƒ¨
+    // P3 è¡¨ç¤º ASCII æ ¼å¼ï¼Œæ¥ç€æ˜¯ å®½ é«˜ï¼Œæœ€åæ˜¯æœ€å¤§é¢œè‰²å€¼ 255
     ofs << "P3\n" << width << " " << height << "\n255\n";
 
-    // Ğ´ÈëÏñËØÊı¾İ
-    // ×¢Òâ£ºPPM ¸ñÊ½Í¨³£ÊÇ´Ó×óÉÏ½Ç¿ªÊ¼¼ÇÂ¼£¬¶øÎÒÃÇµÄ buffer ÊÇ´Ó×óÏÂ½Ç´æµÄ (y=0)
-    // ËùÒÔÎÒÃÇµ¹×Å±éÀú Y Öá
+    // å†™å…¥åƒç´ æ•°æ®
+    // æ³¨æ„ï¼šPPM æ ¼å¼é€šå¸¸æ˜¯ä»å·¦ä¸Šè§’å¼€å§‹è®°å½•ï¼Œè€Œæˆ‘ä»¬çš„ buffer æ˜¯ä»å·¦ä¸‹è§’å­˜çš„ (y=0)
+    // æ‰€ä»¥æˆ‘ä»¬å€’ç€éå† Y è½´
     for (int y = height - 1; y >= 0; y--) {
         for (int x = 0; x < width; x++) {
             int index = y * width + x;
             Vec3f color = frame_buffer[index];
 
-            // ½« 0.0~1.0 µÄ¸¡µãÑÕÉ«×ª»»Îª 0~255 µÄÕûÊı
-            // Ê¹ÓÃ clamp ·ÀÖ¹Òç³ö
+            // å°† 0.0~1.0 çš„æµ®ç‚¹é¢œè‰²è½¬æ¢ä¸º 0~255 çš„æ•´æ•°
+            // ä½¿ç”¨ clamp é˜²æ­¢æº¢å‡º
             int r = std::min(255, std::max(0, (int)(color.x * 255.0f)));
             int g = std::min(255, std::max(0, (int)(color.y * 255.0f)));
             int b = std::min(255, std::max(0, (int)(color.z * 255.0f)));
@@ -165,4 +189,71 @@ void Rasterizer::save_to_ppm(const char* filename) {
 
     ofs.close();
     std::cout << "Image saved to " << filename << std::endl;
+}
+
+void Rasterizer::save_depth_to_ppm(const char* filename) {
+	std::ofstream ofs(filename);
+
+	// 1. å†™å…¥ PPM å¤´éƒ¨ (ç°åº¦å›¾ä¹Ÿæ˜¯ç”¨ P3 RGB æ ¼å¼å­˜ï¼Œåªæ˜¯ R=G=B)
+	ofs << "P3\n" << width << " " << height << "\n255\n";
+
+	// 2. ç¬¬ä¸€ééå†ï¼šå¯»æ‰¾å½“å‰åœºæ™¯ä¸­ Z çš„æœ€å°å€¼å’Œæœ€å¤§å€¼
+	// æˆ‘ä»¬å¿…é¡»å¿½ç•¥åˆå§‹çš„ Infinityï¼Œåªå…³å¿ƒå®é™…ç”»ä¸Šå»çš„åƒç´ 
+	float min_z = std::numeric_limits<float>::infinity();
+	float max_z = -std::numeric_limits<float>::infinity();
+	bool empty_scene = true;
+
+	for (float z : depth_buffer) {
+		if (z != std::numeric_limits<float>::infinity()) {
+			if (z < min_z) min_z = z;
+			if (z > max_z) max_z = z;
+			empty_scene = false;
+		}
+	}
+
+	// é˜²æ­¢é™¤ä»¥é›¶ï¼ˆå¦‚æœåœºæ™¯æ˜¯ç©ºçš„ï¼Œæˆ–è€…æ‰€æœ‰åƒç´ æ·±åº¦éƒ½ä¸€æ ·ï¼‰
+	if (empty_scene) {
+		min_z = 0; max_z = 1;
+	}
+	else if (min_z == max_z) {
+		// åªæœ‰ä¸€ä¸ªå¹³é¢ï¼Œæ— æ³•å½’ä¸€åŒ–ï¼Œäººä¸ºæ‹‰å¼€ä¸€ç‚¹èŒƒå›´
+		max_z = min_z + 0.0001f;
+	}
+
+	float range = max_z - min_z;
+
+	std::cout << "å¯¼å‡ºæ·±åº¦å›¾: Min Z=" << min_z << " Max Z=" << max_z << std::endl;
+
+	// 3. ç¬¬äºŒééå†ï¼šç”Ÿæˆåƒç´ 
+	// åŒæ ·æ³¨æ„å€’åºéå† Y è½´
+	for (int y = height - 1; y >= 0; y--) {
+		for (int x = 0; x < width; x++) {
+			int index = get_index(x, y);
+			float z = depth_buffer[index];
+
+			int gray_value = 0;
+
+			if (z == std::numeric_limits<float>::infinity()) {
+				// èƒŒæ™¯ (æ— é™è¿œ)ï¼šè®¾ä¸ºçº¯ç™½
+				gray_value = 255;
+			}
+			else {
+				// å‰æ™¯ï¼šå½’ä¸€åŒ–åˆ° 0~1
+				// è¶Šè¿‘(zå°) -> factoræ¥è¿‘0 -> é»‘è‰²
+				// è¶Šè¿œ(zå¤§) -> factoræ¥è¿‘1 -> ç™½è‰²
+				float factor = (z - min_z) / range;
+
+				// é’³åˆ¶åˆ° 0~1 ä¹‹é—´ (ä»¥é˜²ä¸‡ä¸€)
+				factor = std::max(0.0f, std::min(1.0f, factor));
+
+				gray_value = static_cast<int>(factor * 255);
+			}
+
+			// å†™å…¥ RGB (ç°åº¦å›¾ R=G=B)
+			ofs << gray_value << " " << gray_value << " " << gray_value << "\n";
+		}
+	}
+
+	ofs.close();
+	std::cout << "æ·±åº¦å›¾å·²ä¿å­˜è‡³: " << filename << std::endl;
 }
