@@ -6,41 +6,43 @@
 
 class Rasterizer {
 public:
-    // 构造函数：初始化屏幕宽高
-    Rasterizer(int w, int h);
+	// 构造函数：传入的是逻辑分辨率（最终输出图片的大小）
+	Rasterizer(int w, int h);
 
-    // 清空画布 (通常用黑色或一种背景色填充)
-    void clear(const Vec3f& color);
+	// 清空画布
+	void clear(const Vec3f& color);
 
-    // 设置像素颜色 (写入 FrameBuffer)
-    // 做了边界检查，防止画到屏幕外面导致崩溃
-    void set_pixel(int x, int y, const Vec3f& color);
+	// 设置像素颜色（写入到超采样的 FrameBuffer）
+	// 注意：这里的 x, y 是超采样后的坐标 (0 ~ width*2)
+	void set_pixel(int x, int y, const Vec3f& color);
 
-    // 核心：画三角形
-    // 输入：三个屏幕空间的顶点坐标 + 颜色
-    // colors 是一个包含 3 个 Vec3f 的数组，分别对应 v0, v1, v2 的颜色
-    void draw_triangle(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const Vec3f* colors);
+	// 核心：画三角形
+	// 输入：逻辑屏幕坐标（0 ~ width）
+	// 内部会自动放大坐标进行 SSAA 渲染
+	void draw_triangle(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const Vec3f* colors);
 
-    // 将 FrameBuffer 导出为 .ppm 图片文件
-    // PPM 是一种极简单的图片格式，不需要任何第三方库就能写
-    void save_to_ppm(const char* filename);
+	// 将结果保存为 PPM
+	// 此步骤包含 Resolve（降采样）：将 2x2 的像素合并为一个，实现抗锯齿
+	void save_to_ppm(const char* filename);
 
-    // 将深度缓冲区导出为灰度图
-    void save_depth_to_ppm(const char* filename);
+	// 保存深度图
+	void save_depth_to_ppm(const char* filename);
 
 private:
-    int width, height;
+	int width, height; // 逻辑宽高
 
-    // 帧缓冲区：本质上就是一个长长的一维数组，存了 w * h 个颜色
-    std::vector<Vec3f> frame_buffer;
+	// SSAA 倍率 (2 表示 2x2 超采样)
+	const int SSAA = 2;
 
-	// 深度缓冲区：存储每个像素当前的最小深度值 (Z值)
+	// Frame buffer: 存储 SSAA * width * SSAA * height 的颜色
+	std::vector<Vec3f> frame_buffer;
+
+	// Depth buffer: 存储 SSAA * width * SSAA * height 的深度
 	std::vector<float> depth_buffer;
 
-    // 辅助函数：计算一维索引
-    int get_index(int x, int y);
+	// 辅助：获取 1D 索引 (基于超采样后的宽高)
+	int get_index(int x, int y);
 
-    // 辅助函数：判断点 (x, y) 是否在三角形内部
-    // _v 是包含三个顶点的数组指针
-    bool inside(float x, float y, const Vec3f* _v);
+	// 辅助：判断点是否在三角形内
+	bool inside(float x, float y, const Vec3f* _v);
 };

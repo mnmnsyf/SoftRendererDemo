@@ -1,11 +1,11 @@
-# Visual Studio
+# Visual Studio & Build Results
 .vs/
-Debug/
-Release/
 x64/
 x86/
 [Aa][Rr][Mm]/
 [Aa][Rr][Mm]64/
+[Dd]ebug/
+[Rr]elease/
 bld/
 bin/
 obj/
@@ -19,26 +19,7 @@ Logs/
 *.userosscache
 *.sln.docstates
 
-# Build results
-[Dd]ebug/
-[Dd]ebugPublic/
-[Rr]elease/
-[Rr]eleases/
-x64/
-x86/
-[Ww][Ii][Nn]32/
-[Aa][Rr][Mm]/
-[Aa][Rr][Mm]64/
-bld/
-bin/
-obj/
-Log/
-Logs/
-
-# Visual Studio 2015/2017 cache/options directory
-.vs/
-
-# Generated files
+# Build Artifacts
 *.obj
 *.pdb
 *.ilk
@@ -57,10 +38,12 @@ Logs/
 *.lib
 *.sbr
 *.bsc
-
-# Code analysis
 *.lastbuildstate
 
-# Windows image file caches
+# Project Specific - Render Outputs
+#*.ppm
+
+# OS Specific
 Thumbs.db
 ehthumbs.db
+.DS_Store
