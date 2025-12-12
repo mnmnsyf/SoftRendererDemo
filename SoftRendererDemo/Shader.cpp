@@ -5,7 +5,7 @@
 // ==========================================
 // Vertex Shader 实现
 // ==========================================
-Vec4f BlinnPhongShader::vertex(int iface, int vert_idx) {
+Vec4f PhongShader::vertex(int iface, int vert_idx) {
 	// 1. 读取输入
 	// 实际项目中这里要做边界检查
 	Vec3f raw_pos = in_positions[vert_idx];
@@ -28,7 +28,7 @@ Vec4f BlinnPhongShader::vertex(int iface, int vert_idx) {
 // ==========================================
 // Fragment Shader 实现
 // ==========================================
-Vec3f BlinnPhongShader::fragment(float alpha, float beta, float gamma) {
+Vec3f PhongShader::fragment(float alpha, float beta, float gamma) {
 	// ------------------------------------------
 	// A. 插值并归一化
 	// ------------------------------------------
@@ -78,4 +78,57 @@ Vec3f BlinnPhongShader::fragment(float alpha, float beta, float gamma) {
 	// D. 输出最终颜色
 	// ------------------------------------------
 	return ambient + diffuse + specular;
+}
+
+// ==========================================
+// Gouraud Vertex Shader (光照计算发生在这里)
+// ==========================================
+Vec4f GouraudShader::vertex(int iface, int vert_idx) {
+	// 1. 读取输入
+	Vec3f raw_pos = in_positions[vert_idx];
+	Vec3f raw_nor = in_normals[vert_idx];
+
+	// 2. 准备数据 (世界空间)
+	Vec4f normal_4 = model * Vec4f(raw_nor, 0.0f);
+	Vec3f normal = Vec3f(normal_4.x, normal_4.y, normal_4.z).normalize();
+
+	Vec4f world_pos_4 = model * Vec4f(raw_pos, 1.0f);
+	Vec3f world_pos = Vec3f(world_pos_4.x, world_pos_4.y, world_pos_4.z);
+
+	// 3. 【核心】直接在这里计算 Blinn-Phong 光照
+
+	// 光源与视线向量
+	Vec3f light_vec = light.position - world_pos;
+	float dist_sq = light_vec.dot(light_vec);
+	Vec3f L = light_vec.normalize();
+	Vec3f V = (camera_pos - world_pos).normalize();
+	Vec3f H = (L + V).normalize();
+
+	// 衰减
+	Vec3f radiance = light.intensity * (1.0f / dist_sq);
+
+	// 环境光
+	Vec3f ambient = k_a * 0.1f;
+
+	// 漫反射
+	float diff = std::max(0.0f, normal.dot(L));
+	Vec3f diffuse = k_d * radiance * diff;
+
+	// 高光
+	float spec = std::pow(std::max(0.0f, normal.dot(H)), p);
+	Vec3f specular = k_s * radiance * spec;
+
+	// 4. 将计算好的颜色存入 varying，准备插值
+	varying_color[iface] = ambient + diffuse + specular;
+
+	// 5. 输出裁剪坐标
+	return projection * view * world_pos_4;
+}
+
+// ==========================================
+// Gouraud Fragment Shader (只负责插值颜色)
+// ==========================================
+Vec3f GouraudShader::fragment(float alpha, float beta, float gamma) {
+	// 极其简单：直接线性插值颜色
+	return varying_color[0] * alpha + varying_color[1] * beta + varying_color[2] * gamma;
 }

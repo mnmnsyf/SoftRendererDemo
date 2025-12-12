@@ -119,74 +119,86 @@ Mesh generate_sphere(float radius, int slices, int stacks, bool use_flat_normals
 }
 
 // ==========================================
-// 验证测试：Flat vs Phong
+// 验证测试：Flat vs Gouraud vs Phong
 // ==========================================
 void run_shading_test() {
-	std::cout << "Running Shading Verification Test..." << std::endl;
+	std::cout << "Running Shading Comparison: Flat vs Gouraud vs Phong..." << std::endl;
 
-	const int width = 800;
-	const int height = 400; // 宽一点，左右各画一个球
+	// 加宽画布以容纳 3 个球
+	const int width = 1200;
+	const int height = 400;
 	Rasterizer r(width, height);
-
-	// 初始化 Shader (使用我们之前写的 BlinnPhongShader)
-	BlinnPhongShader shader;
-
-	// 设置通用参数
-	Vec3f eye(0, 0, 4.5f);
-	Vec3f center(0, 0, 0);
-	Vec3f up(0, 1, 0);
-	shader.view = Mat4::lookAt(eye, center, up);
-	shader.projection = Mat4::perspective(45.0f, (float)width / height, 0.1f, 50.0f);
-
-	// 灯光设置 (白色光，强度适中)
-	shader.light.position = { 0.0f, 5.0f, 10.0f }; // 灯光在正上方偏前
-	shader.light.intensity = { 100.0f, 100.0f, 100.0f };
-
-	// 材质 (红色塑料感)
-	shader.k_a = { 0.1f, 0.0f, 0.0f };
-	shader.k_d = { 0.8f, 0.2f, 0.2f };
-	shader.k_s = { 1.0f, 1.0f, 1.0f };
-	shader.p = 100.0f;
-
 	r.clear(Vec3f(0.1f, 0.1f, 0.1f));
 
 	// ------------------------------------------
-	// 左侧：Flat Shading (面法线球体)
+	// 1. 设置通用参数
+	// ------------------------------------------
+	Vec3f eye(0, 0, 4.5f); // 稍微离远一点
+	Vec3f center(0, 0, 0);
+	Vec3f up(0, 1, 0);
+
+	Mat4 view = Mat4::lookAt(eye, center, up);
+	Mat4 projection = Mat4::perspective(45.0f, (float)width / height, 0.1f, 50.0f);
+
+	Light common_light;
+	common_light.position = { 0.0f, 10.0f, 10.0f };
+	common_light.intensity = { 80.0f, 80.0f, 80.0f }; // 确保亮度足够
+
+	// ------------------------------------------
+	// 2. 左侧：Flat Shading (面法线)
 	// ------------------------------------------
 	{
-		std::cout << "Generating Flat Sphere..." << std::endl;
-		Mesh flat_sphere = generate_sphere(1.0f, 20, 20, true);
+		std::cout << "Draw 1/3: Flat Shading..." << std::endl;
+		PhongShader shader; // 用 Phong Shader 配合 Flat Normal 数据也能出效果
+		shader.view = view; shader.projection = projection; shader.light = common_light; shader.camera_pos = eye;
+		shader.model = Mat4::translate(-2.5f, 0.0f, 0.0f); // 移到最左边
 
-		// 将球体移到左边
-		shader.model = Mat4::translate(-1.2f, 0.0f, 0.0f);
+		shader.k_d = { 0.8f, 0.2f, 0.2f }; // 红
+		shader.p = 100.0f;
 
-		// 绑定数据
-		shader.in_positions = flat_sphere.positions;
-		shader.in_normals = flat_sphere.normals;
-
-		// 绘制
-		r.draw(shader, flat_sphere.positions.size());
+		Mesh mesh = generate_sphere(1.0f, 20, 20, true); // <--- true: 使用面法线
+		shader.in_positions = mesh.positions;
+		shader.in_normals = mesh.normals;
+		r.draw(shader, mesh.positions.size());
 	}
 
 	// ------------------------------------------
-	// 右侧：Phong Shading (平滑法线球体)
+	// 3. 中间：Gouraud Shading (顶点着色)
 	// ------------------------------------------
 	{
-		std::cout << "Generating Smooth Sphere..." << std::endl;
-		Mesh smooth_sphere = generate_sphere(1.0f, 20, 20, false);
+		std::cout << "Draw 2/3: Gouraud Shading..." << std::endl;
+		GouraudShader shader; // <--- 使用新的 Shader
+		shader.view = view; shader.projection = projection; shader.light = common_light; shader.camera_pos = eye;
+		shader.model = Mat4::translate(0.0f, 0.0f, 0.0f); // 居中
 
-		// 将球体移到右边
-		shader.model = Mat4::translate(1.2f, 0.0f, 0.0f);
+		shader.k_d = { 0.2f, 0.8f, 0.2f }; // 绿 (方便区分)
+		shader.p = 100.0f;
 
-		// 绑定数据
-		shader.in_positions = smooth_sphere.positions;
-		shader.in_normals = smooth_sphere.normals;
-
-		// 绘制
-		r.draw(shader, smooth_sphere.positions.size());
+		Mesh mesh = generate_sphere(1.0f, 20, 20, false); // <--- false: 使用平滑法线
+		shader.in_positions = mesh.positions;
+		shader.in_normals = mesh.normals;
+		r.draw(shader, mesh.positions.size());
 	}
 
-	r.save_to_ppm("shading_test.ppm");
+	// ------------------------------------------
+	// 4. 右侧：Phong Shading (片元着色)
+	// ------------------------------------------
+	{
+		std::cout << "Draw 3/3: Phong (Pixel) Shading..." << std::endl;
+		PhongShader shader; // <--- 使用原来的 Shader
+		shader.view = view; shader.projection = projection; shader.light = common_light; shader.camera_pos = eye;
+		shader.model = Mat4::translate(2.5f, 0.0f, 0.0f); // 移到最右边
+
+		shader.k_d = { 0.2f, 0.2f, 0.8f }; // 蓝 (方便区分)
+		shader.p = 100.0f;
+
+		Mesh mesh = generate_sphere(1.0f, 20, 20, false); // <--- false: 使用平滑法线
+		shader.in_positions = mesh.positions;
+		shader.in_normals = mesh.normals;
+		r.draw(shader, mesh.positions.size());
+	}
+
+	r.save_to_ppm("shading_comparison.ppm");
 }
 
 // ==========================================
