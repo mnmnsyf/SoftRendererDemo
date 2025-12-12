@@ -149,7 +149,7 @@ void run_shading_test() {
 	// ------------------------------------------
 	{
 		std::cout << "Draw 1/3: Flat Shading..." << std::endl;
-		PhongShader shader; // 用 Phong Shader 配合 Flat Normal 数据也能出效果
+		BlinnPhongShader shader; // 用 Phong Shader 配合 Flat Normal 数据也能出效果
 		shader.view = view; shader.projection = projection; shader.light = common_light; shader.camera_pos = eye;
 		shader.model = Mat4::translate(-2.5f, 0.0f, 0.0f); // 移到最左边
 
@@ -185,7 +185,7 @@ void run_shading_test() {
 	// ------------------------------------------
 	{
 		std::cout << "Draw 3/3: Phong (Pixel) Shading..." << std::endl;
-		PhongShader shader; // <--- 使用原来的 Shader
+		BlinnPhongShader shader; // <--- 使用原来的 Shader
 		shader.view = view; shader.projection = projection; shader.light = common_light; shader.camera_pos = eye;
 		shader.model = Mat4::translate(2.5f, 0.0f, 0.0f); // 移到最右边
 
@@ -199,6 +199,71 @@ void run_shading_test() {
 	}
 
 	r.save_to_ppm("shading_comparison.ppm");
+}
+
+// ==========================================
+// Demo: Classic Phong vs Blinn-Phong
+// ==========================================
+void run_specular_comparison() {
+	std::cout << "Running Specular Comparison: Classic Phong vs Blinn-Phong..." << std::endl;
+
+	const int width = 800;
+	const int height = 400;
+	Rasterizer r(width, height);
+	r.clear(Vec3f(0.1f, 0.1f, 0.1f));
+
+	// 通用设置
+	Vec3f eye(0, 0, 4.0f);
+	Vec3f center(0, 0, 0);
+	Vec3f up(0, 1, 0);
+	Mat4 view = Mat4::lookAt(eye, center, up);
+	Mat4 projection = Mat4::perspective(45.0f, (float)width / height, 0.1f, 50.0f);
+
+	// 强光
+	Light common_light;
+	common_light.position = { 0.0f, 10.0f, 10.0f };
+	common_light.intensity = { 500.0f, 500.0f, 500.0f };
+
+	// 生成光滑球体模型
+	Mesh sphere = generate_sphere(1.0f, 30, 30, false); // false = Smooth Normals
+
+	// ==========================================
+	// 1. 左边：Classic Phong
+	// ==========================================
+	{
+		ClassicPhongShader shader;
+		shader.view = view; shader.projection = projection; shader.light = common_light; shader.camera_pos = eye;
+
+		shader.model = Mat4::translate(-1.1f, 0.0f, 0.0f); // 左移
+
+		shader.k_d = { 0.8f, 0.2f, 0.2f }; // 红色
+		shader.k_s = { 1.0f, 1.0f, 1.0f }; // 白色高光
+		shader.p = 64.0f;                  // 高光锐度
+
+		shader.in_positions = sphere.positions;
+		shader.in_normals = sphere.normals;
+		r.draw(shader, sphere.positions.size());
+	}
+
+	// ==========================================
+	// 2. 右边：Blinn-Phong
+	// ==========================================
+	{
+		BlinnPhongShader shader; // (假设你之前的 Shader 叫这个名字)
+		shader.view = view; shader.projection = projection; shader.light = common_light; shader.camera_pos = eye;
+
+		shader.model = Mat4::translate(1.1f, 0.0f, 0.0f); // 右移
+
+		shader.k_d = { 0.2f, 0.2f, 0.8f }; // 蓝色
+		shader.k_s = { 1.0f, 1.0f, 1.0f };
+		shader.p = 64.0f;                  // 使用同样的锐度，以便观察区别
+
+		shader.in_positions = sphere.positions;
+		shader.in_normals = sphere.normals;
+		r.draw(shader, sphere.positions.size());
+	}
+
+	r.save_to_ppm("specular_test.ppm");
 }
 
 // ==========================================
@@ -300,6 +365,7 @@ int main() {
 
 	//run_rainbow_triangle_demo();
 	//run_z_buffer_test();
-	run_shading_test();
+	//run_shading_test();
+	run_specular_comparison();
     return 0;
 }

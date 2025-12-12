@@ -3,8 +3,8 @@
 #include "Math.h"
 #include <vector>
 
-// PhongShader：支持环境光、漫反射、高光
-struct PhongShader : public IShader {
+// BlinnPhongShader：支持环境光、漫反射、高光
+struct BlinnPhongShader : public IShader {
 	// ==========================================
 	// Uniforms (全局变量)
 	// ==========================================
@@ -97,6 +97,32 @@ struct GouraudShader : public IShader {
 	// ==========================================
 	Vec3f varying_color[3];
 
+	virtual Vec4f vertex(int iface, int vert_idx) override;
+	virtual Vec3f fragment(float alpha, float beta, float gamma) override;
+};
+
+// 经典的 Phong Shader (使用反射向量 R)
+struct ClassicPhongShader : public IShader {
+	// Uniforms
+	Mat4 model;
+	Mat4 view;
+	Mat4 projection;
+	Vec3f camera_pos;
+	Light light;
+	Vec3f k_a = { 0.1f, 0.1f, 0.1f };
+	Vec3f k_d = { 0.8f, 0.8f, 0.8f };
+	Vec3f k_s = { 1.0f, 1.0f, 1.0f };
+	float p = 38.f;
+
+	// Attributes
+	std::vector<Vec3f> in_positions;
+	std::vector<Vec3f> in_normals;
+
+	// Varyings
+	Vec3f varying_world_pos[3];
+	Vec3f varying_normal[3];
+
+	// 接口
 	virtual Vec4f vertex(int iface, int vert_idx) override;
 	virtual Vec3f fragment(float alpha, float beta, float gamma) override;
 };
