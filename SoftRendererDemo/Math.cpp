@@ -1,13 +1,13 @@
-#include "Math.h"
+ï»¿#include "Math.h"
 #include <cmath>
 
-// ¸¨Öúºê»ò³£Á¿£º½Ç¶È×ª»¡¶È
-// ¹«Ê½£º»¡¶È = ½Ç¶È * PI / 180.0
+// è¾…åŠ©å®æˆ–å¸¸é‡ï¼šè§’åº¦è½¬å¼§åº¦
+// å…¬å¼ï¼šå¼§åº¦ = è§’åº¦ * PI / 180.0
 #define PI 3.14159265359f
 #define TO_RAD(deg) ((deg) * PI / 180.0f)
 
 // ==========================================
-// Vec3f ÊµÏÖ
+// Vec3f å®žçŽ°
 // ==========================================
 Vec3f Vec3f::operator+(const Vec3f& rhs) const {
 	return Vec3f(x + rhs.x, y + rhs.y, z + rhs.z);
@@ -21,11 +21,16 @@ Vec3f Vec3f::operator*(float scalar) const {
 	return Vec3f(x * scalar, y * scalar, z * scalar);
 }
 
+Vec3f Vec3f::operator*(const Vec3f& v) const
+{
+    return Vec3f(x * v.x, y * v.y, z * v.z);
+}
+
 float Vec3f::dot(const Vec3f& rhs) const {
 	return x * rhs.x + y * rhs.y + z * rhs.z;
 }
 
-// ²æ³Ë¹«Ê½£º
+// å‰ä¹˜å…¬å¼ï¼š
 // x = y1*z2 - z1*y2
 // y = z1*x2 - x1*z2
 // z = x1*y2 - y1*x2
@@ -43,7 +48,7 @@ float Vec3f::length() const {
 
 Vec3f Vec3f::normalize() const {
     float len = length();
-    if (len > 0.00001f) { // ·ÀÖ¹³ýÒÔ0
+    if (len > 0.00001f) { // é˜²æ­¢é™¤ä»¥0
         float invLen = 1.0f / len;
         return Vec3f(x * invLen, y * invLen, z * invLen);
     }
@@ -51,17 +56,17 @@ Vec3f Vec3f::normalize() const {
 }
 
 // ==========================================
-// Mat4 ÊµÏÖ
+// Mat4 å®žçŽ°
 // ==========================================
 
-// Ä¬ÈÏ¹¹Ôì£ºÇåÁã
+// é»˜è®¤æž„é€ ï¼šæ¸…é›¶
 Mat4::Mat4() {
     for (int i = 0; i < 4; ++i)
         for (int j = 0; j < 4; ++j)
             m[i][j] = 0.0f;
 }
 
-// ¾²Ì¬·½·¨£ºÉú³Éµ¥Î»¾ØÕó
+// é™æ€æ–¹æ³•ï¼šç”Ÿæˆå•ä½çŸ©é˜µ
 // 1 0 0 0
 // 0 1 0 0
 // 0 0 1 0
@@ -73,12 +78,12 @@ Mat4 Mat4::identity() {
     return res;
 }
 
-// ¾ØÕó * ¾ØÕó
-// ¹«Ê½£ºResult[i][j] = Row[i] ¡¤ Col[j] (µã»ý)
+// çŸ©é˜µ * çŸ©é˜µ
+// å…¬å¼ï¼šResult[i][j] = Row[i] Â· Col[j] (ç‚¹ç§¯)
 Mat4 Mat4::operator*(const Mat4& rhs) const {
     Mat4 res;
-    for (int i = 0; i < 4; ++i) {     // ±éÀúÐÐ
-        for (int j = 0; j < 4; ++j) { // ±éÀúÁÐ
+    for (int i = 0; i < 4; ++i) {     // éåŽ†è¡Œ
+        for (int j = 0; j < 4; ++j) { // éåŽ†åˆ—
             res.m[i][j] = 
                 m[i][0] * rhs.m[0][j] +
                 m[i][1] * rhs.m[1][j] +
@@ -89,8 +94,8 @@ Mat4 Mat4::operator*(const Mat4& rhs) const {
     return res;
 }
 
-// ¾ØÕó * ÏòÁ¿
-// ½á¹ûÏòÁ¿µÄµÚ i ¸ö·ÖÁ¿ = ¾ØÕóµÚ i ÐÐÓëÏòÁ¿µÄµã»ý
+// çŸ©é˜µ * å‘é‡
+// ç»“æžœå‘é‡çš„ç¬¬ i ä¸ªåˆ†é‡ = çŸ©é˜µç¬¬ i è¡Œä¸Žå‘é‡çš„ç‚¹ç§¯
 Vec4f Mat4::operator*(const Vec4f& v) const {
     return Vec4f(
         m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z + m[0][3] * v.w,
@@ -100,14 +105,14 @@ Vec4f Mat4::operator*(const Vec4f& v) const {
     );
 }
 
-// Æ½ÒÆ¾ØÕó
+// å¹³ç§»çŸ©é˜µ
 // [ 1 0 0 tx ]
 // [ 0 1 0 ty ]
 // [ 0 0 1 tz ]
 // [ 0 0 0 1  ]
 Mat4 Mat4::translate(float x, float y, float z) {
-    Mat4 res = identity(); // ÏÈÄÃµ½µ¥Î»¾ØÕó
-    res.m[0][3] = x;       // µÚ0ÐÐ£¬µÚ3ÁÐ (×îºóÒ»ÁÐ)
+    Mat4 res = identity(); // å…ˆæ‹¿åˆ°å•ä½çŸ©é˜µ
+    res.m[0][3] = x;       // ç¬¬0è¡Œï¼Œç¬¬3åˆ— (æœ€åŽä¸€åˆ—)
     res.m[1][3] = y;
     res.m[2][3] = z;
     return res;
@@ -117,17 +122,17 @@ Mat4 Mat4::translate(const Vec3f& v) {
     return translate(v.x, v.y, v.z);
 }
 
-// Ëõ·Å¾ØÕó
+// ç¼©æ”¾çŸ©é˜µ
 // [ sx 0  0  0 ]
 // [ 0  sy 0  0 ]
 // [ 0  0  sz 0 ]
 // [ 0  0  0  1 ]
 Mat4 Mat4::scale(float x, float y, float z) {
-    Mat4 res; // Ä¬ÈÏÈ«0
+    Mat4 res; // é»˜è®¤å…¨0
     res.m[0][0] = x;
     res.m[1][1] = y;
     res.m[2][2] = z;
-    res.m[3][3] = 1.0f; // ±ðÍüÁË w ·ÖÁ¿±£³Ö 1
+    res.m[3][3] = 1.0f; // åˆ«å¿˜äº† w åˆ†é‡ä¿æŒ 1
     return res;
 }
 
@@ -135,7 +140,7 @@ Mat4 Mat4::scale(const Vec3f& v) {
     return scale(v.x, v.y, v.z);
 }
 
-// ÈÆ X ÖáÐý×ª
+// ç»• X è½´æ—‹è½¬
 // [ 1  0    0    0 ]
 // [ 0 cos -sin   0 ]
 // [ 0 sin  cos   0 ]
@@ -153,7 +158,7 @@ Mat4 Mat4::rotateX(float angleDeg) {
     return res;
 }
 
-// ÈÆ Y ÖáÐý×ª
+// ç»• Y è½´æ—‹è½¬
 // [ cos  0  sin  0 ]
 // [  0   1   0   0 ]
 // [ -sin 0  cos  0 ]
@@ -171,7 +176,7 @@ Mat4 Mat4::rotateY(float angleDeg) {
     return res;
 }
 
-// ÈÆ Z ÖáÐý×ª
+// ç»• Z è½´æ—‹è½¬
 // [ cos -sin 0  0 ]
 // [ sin  cos 0  0 ]
 // [  0    0  1  0 ]
@@ -190,53 +195,53 @@ Mat4 Mat4::rotateZ(float angleDeg) {
 }
 
 // ==========================================
-// ÊÓÍ¼¾ØÕó (LookAt)
+// è§†å›¾çŸ©é˜µ (LookAt)
 // ==========================================
-// Ô­Àí£º¹¹½¨Ò»¸öÐÂµÄ×ø±êÏµ (Right, Up, Forward)£¬È»ºóÇóÄæ
+// åŽŸç†ï¼šæž„å»ºä¸€ä¸ªæ–°çš„åæ ‡ç³» (Right, Up, Forward)ï¼Œç„¶åŽæ±‚é€†
 Mat4 Mat4::lookAt(const Vec3f& eye, const Vec3f& center, const Vec3f& up) {
-    // 1. ¼ÆËãÊÓÏß·½Ïò (Forward)
-    // ×¢Òâ£ºOpenGL Ï°¹ßÖÐ£¬Forward ÊÇ´Ó Target Ö¸Ïò Eye (¼´ -Z ·½Ïò)
+    // 1. è®¡ç®—è§†çº¿æ–¹å‘ (Forward)
+    // æ³¨æ„ï¼šOpenGL ä¹ æƒ¯ä¸­ï¼ŒForward æ˜¯ä»Ž Target æŒ‡å‘ Eye (å³ -Z æ–¹å‘)
     Vec3f f = (eye - center);
 
-    // ¡¾·ÀÓù 1¡¿·ÀÖ¹ eye ºÍ center ÖØºÏµ¼ÖÂ NaN
+    // ã€é˜²å¾¡ 1ã€‘é˜²æ­¢ eye å’Œ center é‡åˆå¯¼è‡´ NaN
     if (f.length() < 0.00001f) {
-        // ÊÓµãºÍÄ¿±êÖØºÏÁË£¬ÎÞ·¨È·¶¨·½Ïò£¬Ö±½Ó·µ»Øµ¥Î»¾ØÕó»ò±£³ÖÄ¬ÈÏ
+        // è§†ç‚¹å’Œç›®æ ‡é‡åˆäº†ï¼Œæ— æ³•ç¡®å®šæ–¹å‘ï¼Œç›´æŽ¥è¿”å›žå•ä½çŸ©é˜µæˆ–ä¿æŒé»˜è®¤
         return Mat4::identity();
     }
     f = f.normalize();
 
-    // 2. ¼ÆËãÓÒÏòÁ¿ (Right)
+    // 2. è®¡ç®—å³å‘é‡ (Right)
     Vec3f r = up.cross(f);
 
-    // ¡¾·ÀÓù 2¡¿·ÀÖ¹ÊÓÏßºÍ Up Æ½ÐÐ (ÍòÏò½ÚËÀËø)
-    // Èç¹û f ºÍ up Æ½ÐÐ£¬cross ½á¹û³¤¶È½Ó½ü 0
+    // ã€é˜²å¾¡ 2ã€‘é˜²æ­¢è§†çº¿å’Œ Up å¹³è¡Œ (ä¸‡å‘èŠ‚æ­»é”)
+    // å¦‚æžœ f å’Œ up å¹³è¡Œï¼Œcross ç»“æžœé•¿åº¦æŽ¥è¿‘ 0
     if (r.length() < 0.00001f) {
-        // ²¹¾È´ëÊ©£ºÈç¹ûÊÓÏßÊÇ´¹Ö±ÏòÉÏµÄ£¬ÎÒÃÇ¾Í¼ÙÉè¡°ÓÒ¡±ÊÇ X Öá
-        // ÕâÖÖÇé¿öÍ¨³£·¢ÉúÔÚÄã¿´ÏòÕýÉÏ·½»òÕýÏÂ·½Ê±
-        if (std::abs(f.y) > 0.999f) { // ÕýÔÚ¿´Ìì»ò¿´µØ
-            // Ç¿ÖÆÖ¸¶¨ Right Îª X Öá
+        // è¡¥æ•‘æŽªæ–½ï¼šå¦‚æžœè§†çº¿æ˜¯åž‚ç›´å‘ä¸Šçš„ï¼Œæˆ‘ä»¬å°±å‡è®¾â€œå³â€æ˜¯ X è½´
+        // è¿™ç§æƒ…å†µé€šå¸¸å‘ç”Ÿåœ¨ä½ çœ‹å‘æ­£ä¸Šæ–¹æˆ–æ­£ä¸‹æ–¹æ—¶
+        if (std::abs(f.y) > 0.999f) { // æ­£åœ¨çœ‹å¤©æˆ–çœ‹åœ°
+            // å¼ºåˆ¶æŒ‡å®š Right ä¸º X è½´
             r = Vec3f(1.0f, 0.0f, 0.0f);
         }
         else {
-            // ÆäËûÆæ¹ÖÇé¿ö£¬Ëæ±ãÕÒ¸öÖá£¨±ÈÈç Y Öá£©²æ³ËÒ»ÏÂ
+            // å…¶ä»–å¥‡æ€ªæƒ…å†µï¼Œéšä¾¿æ‰¾ä¸ªè½´ï¼ˆæ¯”å¦‚ Y è½´ï¼‰å‰ä¹˜ä¸€ä¸‹
             r = Vec3f(0.0f, 1.0f, 0.0f).cross(f);
         }
     }
     r = r.normalize();
 
-    // 3. ¼ÆËãÉÏÏòÁ¿ (True Up)
-    // ¼ÈÈ» f ºÍ r ÒÑ¾­Õý½»ÇÒ¹éÒ»»¯£¬u ×ÔÈ»Ò²ÊÇ¹éÒ»»¯µÄ
+    // 3. è®¡ç®—ä¸Šå‘é‡ (True Up)
+    // æ—¢ç„¶ f å’Œ r å·²ç»æ­£äº¤ä¸”å½’ä¸€åŒ–ï¼Œu è‡ªç„¶ä¹Ÿæ˜¯å½’ä¸€åŒ–çš„
     Vec3f u = f.cross(r);
 
-    // 4. ¹¹½¨¾ØÕó
+    // 4. æž„å»ºçŸ©é˜µ
     Mat4 res = identity();
 
-    // Ðý×ª²¿·Ö (×ªÖÃµÄÕý½»»ù)
+    // æ—‹è½¬éƒ¨åˆ† (è½¬ç½®çš„æ­£äº¤åŸº)
     res.m[0][0] = r.x; res.m[0][1] = r.y; res.m[0][2] = r.z;
     res.m[1][0] = u.x; res.m[1][1] = u.y; res.m[1][2] = u.z;
     res.m[2][0] = f.x; res.m[2][1] = f.y; res.m[2][2] = f.z;
 
-    // Æ½ÒÆ²¿·Ö
+    // å¹³ç§»éƒ¨åˆ†
     res.m[0][3] = -r.dot(eye);
     res.m[1][3] = -u.dot(eye);
     res.m[2][3] = -f.dot(eye);
@@ -245,28 +250,28 @@ Mat4 Mat4::lookAt(const Vec3f& eye, const Vec3f& center, const Vec3f& up) {
 }
 
 // ==========================================
-// Í¸ÊÓÍ¶Ó°¾ØÕó (Perspective)
+// é€è§†æŠ•å½±çŸ©é˜µ (Perspective)
 // ==========================================
 Mat4 Mat4::perspective(float fovY, float aspect, float zNear, float zFar) {
     float tanHalfFovy = std::tan(TO_RAD(fovY) / 2.0f);
 
-    Mat4 res; // ´ËÊ±È«Îª0
+    Mat4 res; // æ­¤æ—¶å…¨ä¸º0
 
-    // 1. Ëõ·Å X ºÍ Y (ÊµÏÖÊÓÒ°·¶Î§¿ØÖÆ)
-    // ½¹¾à f = 1 / tan(fov/2)
+    // 1. ç¼©æ”¾ X å’Œ Y (å®žçŽ°è§†é‡ŽèŒƒå›´æŽ§åˆ¶)
+    // ç„¦è· f = 1 / tan(fov/2)
     res.m[0][0] = 1.0f / (aspect * tanHalfFovy);
     res.m[1][1] = 1.0f / (tanHalfFovy);
 
-    // 2. Éî¶È´¦Àí (Z mapping)
-    // ½« zNear~zFar Ó³Éäµ½ -1~1 (»ò 0~1£¬È¡¾öÓÚ API£¬ÕâÀï°´±ê×¼ GL -1~1)
+    // 2. æ·±åº¦å¤„ç† (Z mapping)
+    // å°† zNear~zFar æ˜ å°„åˆ° -1~1 (æˆ– 0~1ï¼Œå–å†³äºŽ APIï¼Œè¿™é‡ŒæŒ‰æ ‡å‡† GL -1~1)
     res.m[2][2] = -(zFar + zNear) / (zFar - zNear);
 
-    // 3. Í¸ÊÓ³ý·¨ºËÐÄ
-    // ½« Z Öµ´æÈë W ·ÖÁ¿¡£
-    // µ± GPU ½øÐÐ (x/w, y/w, z/w) Ê±£¬Êµ¼ÊÉÏ¾ÍÊÇ³ýÒÔÁË -z£¬´Ó¶øÊµÏÖ½ü´óÔ¶Ð¡
+    // 3. é€è§†é™¤æ³•æ ¸å¿ƒ
+    // å°† Z å€¼å­˜å…¥ W åˆ†é‡ã€‚
+    // å½“ GPU è¿›è¡Œ (x/w, y/w, z/w) æ—¶ï¼Œå®žé™…ä¸Šå°±æ˜¯é™¤ä»¥äº† -zï¼Œä»Žè€Œå®žçŽ°è¿‘å¤§è¿œå°
     res.m[3][2] = -1.0f;
 
-    // 4. Z µÄÆ½ÒÆ²¿·Ö
+    // 4. Z çš„å¹³ç§»éƒ¨åˆ†
     res.m[2][3] = -(2.0f * zFar * zNear) / (zFar - zNear);
 
     return res;
@@ -275,17 +280,17 @@ Mat4 Mat4::perspective(float fovY, float aspect, float zNear, float zFar) {
 Mat4 Mat4::viewport(float width, float height) {
     Mat4 res = identity();
 
-    // 1. XÖá±ä»»: [-1, 1] -> [0, width]
+    // 1. Xè½´å˜æ¢: [-1, 1] -> [0, width]
     res.m[0][0] = width / 2.0f;
     res.m[0][3] = width / 2.0f;
 
-    // 2. YÖá±ä»»: [-1, 1] -> [0, height]
-    // ×¢Òâ£ºÕâÀï¼ÙÉèÆÁÄ»Ô­µãÔÚ×óÏÂ½Ç£¨ÊýÑ§Ï°¹ß£©¡£
-    // Èç¹ûÄãµÄÆÁÄ»Ô­µãÔÚ×óÉÏ½Ç£¨Èç Windows ´°¿Ú¡¢Í¼Æ¬£©£¬ÐèÒª°Ñ¸ß¶È·´×ª¡£¹«Ê½±äÌå£ºy_screen = (1 - y_ndc) * (h/2)
+    // 2. Yè½´å˜æ¢: [-1, 1] -> [0, height]
+    // æ³¨æ„ï¼šè¿™é‡Œå‡è®¾å±å¹•åŽŸç‚¹åœ¨å·¦ä¸‹è§’ï¼ˆæ•°å­¦ä¹ æƒ¯ï¼‰ã€‚
+    // å¦‚æžœä½ çš„å±å¹•åŽŸç‚¹åœ¨å·¦ä¸Šè§’ï¼ˆå¦‚ Windows çª—å£ã€å›¾ç‰‡ï¼‰ï¼Œéœ€è¦æŠŠé«˜åº¦åè½¬ã€‚å…¬å¼å˜ä½“ï¼šy_screen = (1 - y_ndc) * (h/2)
     res.m[1][1] = height / 2.0f;
     res.m[1][3] = height / 2.0f;
 
-    // 3. ZÖá±ä»»: [-1, 1] -> [0, 1] (±ê×¼Éî¶È·¶Î§)
+    // 3. Zè½´å˜æ¢: [-1, 1] -> [0, 1] (æ ‡å‡†æ·±åº¦èŒƒå›´)
     res.m[2][2] = 0.5f;
     res.m[2][3] = 0.5f;
 

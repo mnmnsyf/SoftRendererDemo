@@ -1,22 +1,23 @@
-#pragma once
+ï»¿#pragma once
 #include <cmath>
 
 struct Vec3f {
     float x, y, z;
-    // 1. ¹¹Ôìº¯Êı
+    // 1. æ„é€ å‡½æ•°
     Vec3f() : x(0), y(0), z(0) {}
     Vec3f(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
 
-    // 2. »ù´¡ÔËËã
-    Vec3f operator+(const Vec3f& rhs) const; // ¼Ó·¨
-    Vec3f operator-(const Vec3f& rhs) const; // ¼õ·¨
-    Vec3f operator*(float scalar) const;     // Êı³Ë (ÏòÁ¿ * ±êÁ¿)
-    
-    // 3. ¸ß¼¶ÔËËã
-    float dot(const Vec3f& rhs) const;       // µã³Ë
-    Vec3f cross(const Vec3f& rhs) const;     // ²æ³Ë
-    Vec3f normalize() const;                 // ¹éÒ»»¯
-    float length() const;                    // ³¤¶È
+    // 2. åŸºç¡€è¿ç®—
+    Vec3f operator+(const Vec3f& rhs) const; // åŠ æ³•
+    Vec3f operator-(const Vec3f& rhs) const; // å‡æ³•
+    Vec3f operator*(float scalar) const;    // æ•°ä¹˜ (å‘é‡ * æ ‡é‡)
+    Vec3f operator*(const Vec3f& v) const;  // å‘é‡ä¸å‘é‡çš„åˆ†é‡ç›¸ä¹˜ (Hadamard Product)
+
+    // 3. é«˜çº§è¿ç®—
+    float dot(const Vec3f& rhs) const;       // ç‚¹ä¹˜
+    Vec3f cross(const Vec3f& rhs) const;     // å‰ä¹˜
+    Vec3f normalize() const;                 // å½’ä¸€åŒ–
+    float length() const;                    // é•¿åº¦
 };
 
 struct Vec4f {
@@ -25,37 +26,37 @@ struct Vec4f {
     Vec4f() : x(0), y(0), z(0), w(0) {}
     Vec4f(float _x, float _y, float _z, float _w) : x(_x), y(_y), z(_z), w(_w) {}
 
-    // Ö§³Ö´Ó Vec3f + w ¹¹Ôì
+    // æ”¯æŒä» Vec3f + w æ„é€ 
     Vec4f(const Vec3f& v, float _w) : x(v.x), y(v.y), z(v.z), w(_w) {}
 };
 
 struct Mat4 {
-    float m[4][4]; // »ò float m[16];
+    float m[4][4]; // æˆ– float m[16];
 
     Mat4();
     static Mat4 identity();
     Mat4 operator*(const Mat4& rhs) const;
     Vec4f operator*(const Vec4f& v) const;
 
-    // Æ½ÒÆ¾ØÕó (x, y, z)
+    // å¹³ç§»çŸ©é˜µ (x, y, z)
     static Mat4 translate(float x, float y, float z);
-    static Mat4 translate(const Vec3f& v); // ÖØÔØ°æ±¾£¬·½±ãÖ±½Ó´«ÏòÁ¿
+    static Mat4 translate(const Vec3f& v); // é‡è½½ç‰ˆæœ¬ï¼Œæ–¹ä¾¿ç›´æ¥ä¼ å‘é‡
 
-    // Ëõ·Å¾ØÕó (x, y, z)
+    // ç¼©æ”¾çŸ©é˜µ (x, y, z)
     static Mat4 scale(float x, float y, float z);
     static Mat4 scale(const Vec3f& v);
 
-    // Ğı×ª¾ØÕó (ÊäÈë½Ç¶È£¬µ¥Î»£º¶È Degree)
+    // æ—‹è½¬çŸ©é˜µ (è¾“å…¥è§’åº¦ï¼Œå•ä½ï¼šåº¦ Degree)
     static Mat4 rotateX(float angleDeg);
     static Mat4 rotateY(float angleDeg);
     static Mat4 rotateZ(float angleDeg);
 
-    // ÉãÏñ»ú£ºÎ»ÖÃ(eye)£¬¿´ÏòÄÄÀï(center)£¬Í·¶¥³¯Ïò(up)
+    // æ‘„åƒæœºï¼šä½ç½®(eye)ï¼Œçœ‹å‘å“ªé‡Œ(center)ï¼Œå¤´é¡¶æœå‘(up)
     static Mat4 lookAt(const Vec3f& eye, const Vec3f& center, const Vec3f& up);
 
-    // Í¸ÊÓÍ¶Ó°£º´¹Ö±ÊÓ½Ç(fovY, ½Ç¶È)£¬¿í¸ß±È(aspect)£¬½üÆ½Ãæ(zNear)£¬Ô¶Æ½Ãæ(zFar)
+    // é€è§†æŠ•å½±ï¼šå‚ç›´è§†è§’(fovY, è§’åº¦)ï¼Œå®½é«˜æ¯”(aspect)ï¼Œè¿‘å¹³é¢(zNear)ï¼Œè¿œå¹³é¢(zFar)
     static Mat4 perspective(float fovY, float aspect, float zNear, float zFar);
 
-    // ÊÓ¿Ú±ä»»£ºÊäÈëÆÁÄ»¿í¸ß
+    // è§†å£å˜æ¢ï¼šè¾“å…¥å±å¹•å®½é«˜
     static Mat4 viewport(float width, float height);
 };
