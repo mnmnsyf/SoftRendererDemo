@@ -129,11 +129,13 @@
   <ItemGroup>
     <ClCompile Include="Math.cpp" />
     <ClCompile Include="Rasterizer.cpp" />
+    <ClCompile Include="Shader.cpp" />
     <ClCompile Include="SoftRendererDemo.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Math.h" />
     <ClInclude Include="Rasterizer.h" />
+    <ClInclude Include="Shader.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

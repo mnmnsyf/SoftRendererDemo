@@ -4,46 +4,63 @@
 #include <limits>
 #include "Math.h"
 
+// ==========================================
+// 定义灯光结构
+// ==========================================
+struct Light {
+	Vec3f position;
+	Vec3f intensity; // 颜色 * 亮度
+};
+
+// ==========================================
+// 定义着色器接口
+// ==========================================
+struct IShader {
+	virtual ~IShader() = default;
+
+	// 顶点着色器：
+	// 输入：顶点索引 (vert_idx)
+	// 输出：裁剪空间坐标 (Vec4f)
+	// 副作用：在这个函数里，Shader 会把法线、UV 等数据存到 varying 变量(如法线、世界坐标等)里准备插值
+	virtual Vec4f vertex(int iface, int vert_idx) = 0;
+
+	// 片元着色器：
+	// 输入：重心坐标插值系数 (alpha, beta, gamma)
+	// 输出：最终像素颜色 (Vec3f)
+	virtual Vec3f fragment(float alpha, float beta, float gamma) = 0;
+};
+
+// ==========================================
+// Rasterizer 类定义
+// ==========================================
 class Rasterizer {
 public:
 	// 构造函数：传入的是逻辑分辨率（最终输出图片的大小）
 	Rasterizer(int w, int h);
 
-	// 清空画布
+	// 基础功能
 	void clear(const Vec3f& color);
-
-	// 设置像素颜色
-	// 为了兼容性，如果直接设置一个像素，我们会把该像素内的 4 个采样点都设为这个颜色
 	void set_pixel(int x, int y, const Vec3f& color);
-
-	// 核心：画三角形
-	// 输入：逻辑屏幕坐标（0 ~ width）
-	// 内部会自动放大坐标进行 SSAA 渲染
-	void draw_triangle(const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const Vec3f* colors);
-
-	// 将结果保存为 PPM
-	// 此步骤包含 Resolve（降采样）：将 2x2 的像素合并为一个，实现抗锯齿
 	void save_to_ppm(const char* filename);
-
-	// 保存深度图
 	void save_depth_to_ppm(const char* filename);
 
+	// 使用 Shader 进行绘制
+	// n_verts: 顶点总数 (通常是 3 的倍数)
+	void draw(IShader& shader, int n_verts);
+
 private:
-	int width, height; // 逻辑宽高
+	int width, height;
+	const int SAMPLE_COUNT = 4; // 依然保留 RGSS 结构，但在 draw_new 中我们暂时简化为单采样
 
-	// 这里的 4 代表 RGSS 的 4 个采样点
-	const int SAMPLE_COUNT = 4;
-
-	// Flattened Buffer:
-	// 内存布局：Pixel_0[Sample0, Sample1, Sample2, Sample3], Pixel_1[...]
-	// 总大小 = width * height * 4
 	std::vector<Vec3f> frame_buffer;
 	std::vector<float> depth_buffer;
 
-	// 获取特定像素的特定采样点的索引
-	// sample_idx 范围 0~3
-	int get_index(int x, int y, int sample_idx);
+	int get_index(int x, int y);
 
-	// 辅助：判断点是否在三角形内
-	bool inside(float x, float y, const Vec3f* _v);
+	// [新内部函数] 实际的光栅化逻辑
+	void draw_triangle(IShader& shader, const Vec4f* clips);
+
+	// 辅助计算重心坐标
+	// 返回 tuple: {alpha, beta, gamma}
+	std::tuple<float, float, float> compute_barycentric_2d(float x, float y, const Vec3f* v);
 };
