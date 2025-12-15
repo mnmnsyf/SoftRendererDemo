@@ -22,7 +22,7 @@ struct IShader {
 	// 输入：顶点索引 (vert_idx)
 	// 输出：裁剪空间坐标 (Vec4f)
 	// 副作用：在这个函数里，Shader 会把法线、UV 等数据存到 varying 变量(如法线、世界坐标等)里准备插值
-	virtual Vec4f vertex(int iface, int vert_idx) = 0;
+	virtual Vec4f vertex(int iface, size_t vert_idx) = 0;
 
 	// 片元着色器：
 	// 输入：重心坐标插值系数 (alpha, beta, gamma)
@@ -46,7 +46,7 @@ public:
 
 	// 使用 Shader 进行绘制
 	// n_verts: 顶点总数 (通常是 3 的倍数)
-	void draw(IShader& shader, int n_verts);
+	void draw(IShader& shader, size_t n_verts);
 
 private:
 	int width, height;
@@ -57,10 +57,12 @@ private:
 
 	int get_index(int x, int y);
 
-	// [新内部函数] 实际的光栅化逻辑
-	void draw_triangle(IShader& shader, const Vec4f* clips);
+	// 光栅化一个三角形
+	// v: 屏幕空间坐标 (x, y, z_ndc, w_original)
+	// w_recip:  三个顶点的 1/w 值，用于透视矫正
+	void rasterize_triangle(const Vec4f v[], const float w_recip[], IShader& shader);
 
 	// 辅助计算重心坐标
 	// 返回 tuple: {alpha, beta, gamma}
-	std::tuple<float, float, float> compute_barycentric_2d(float x, float y, const Vec3f* v);
+	std::tuple<float, float, float> compute_barycentric_2d(float x, float y, const Vec4f* v);
 };

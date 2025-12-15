@@ -5,11 +5,28 @@
 // ==========================================
 // Vertex Shader 实现
 // ==========================================
-Vec4f BlinnPhongShader::vertex(int iface, int vert_idx) {
+Vec4f BlinnPhongShader::vertex(int iface, size_t vert_idx) {
 	// 1. 读取输入
-	// 实际项目中这里要做边界检查
-	Vec3f raw_pos = in_positions[vert_idx];
-	Vec3f raw_nor = in_normals[vert_idx];
+	// --- 安全性检查：位置数组 ---
+	Vec3f raw_pos(0, 0, 0);
+	if (vert_idx >= 0 && vert_idx < in_positions.size()) {
+		raw_pos = in_positions[vert_idx];
+	}
+
+	// --- 安全性检查：法线数组 ---
+	Vec3f raw_nor(0, 1, 0); // 默认向上
+	if (vert_idx >= 0 && vert_idx < in_normals.size()) {
+		raw_nor = in_normals[vert_idx];
+	}
+
+	// --- 安全性检查：UV 数组 (关键！) ---
+	// 如果 Mesh 没有提供 UV，或者索引越界，给一个默认值 (0,0)
+	if (vert_idx >= 0 && vert_idx < in_uvs.size()) {
+		varying_uv[iface] = in_uvs[vert_idx];
+	}
+	else {
+		varying_uv[iface] = Vec2f(0.0f, 0.0f);
+	}
 
 	// 2. 变换法线 -> 世界空间
 	// 正确做法是使用 model 的逆转置矩阵 (Inverse Transpose)
@@ -32,29 +49,44 @@ Vec3f BlinnPhongShader::fragment(float alpha, float beta, float gamma) {
 	// ------------------------------------------
 	// A. 插值并归一化
 	// ------------------------------------------
-	// 1. 法线插值
+	// 1. 插值法线和位置
 	Vec3f normal = varying_normal[0] * alpha + varying_normal[1] * beta + varying_normal[2] * gamma;
 	normal = normal.normalize(); // 【关键】插值后的向量长度不为1，必须归一化
-
-	// 2. 世界坐标插值
 	Vec3f world_pos = varying_world_pos[0] * alpha + varying_world_pos[1] * beta + varying_world_pos[2] * gamma;
 
-	// ------------------------------------------
-	// B. 准备光照向量
-	// ------------------------------------------
-	// 光源方向 L (从着色点指向光源)
+	// 2. 插值 UV
+	Vec2f uv = varying_uv[0] * alpha + varying_uv[1] * beta + varying_uv[2] * gamma;
+
+	
 	Vec3f light_vec = light.position - world_pos;
-	float dist_sq = light_vec.dot(light_vec); // 距离平方
-	Vec3f L = light_vec.normalize();
+	float dist_sq = light_vec.dot(light_vec); // 计算光源到点的距离 r
+	Vec3f L = light_vec.normalize();     // 入射光方向 (从着色点指向光源)
 
-	// 视线方向 V (从着色点指向摄像机)
-	Vec3f V = (camera_pos - world_pos).normalize();
-
-	// 半程向量 H (用于 Blinn-Phong 高光)
-	Vec3f H = (L + V).normalize();
+	Vec3f V = (camera_pos - world_pos).normalize(); // 视线方向 (从着色点指向摄像机)
+	Vec3f H = (L + V).normalize();       // 半程向量 (Blinn-Phong)
 
 	// ------------------------------------------
-	// C. 计算 Blinn-Phong 三项
+	// B. 纹理调制 (Modulation)
+	// ------------------------------------------
+	// 如果有纹理，采样纹理颜色；如果没有，默认白色(1,1,1)不影响乘法
+	Vec3f tex_color = Vec3f(1.0f, 1.0f, 1.0f);
+	if (use_texture && texture != nullptr) {
+		if (sample_mode == MODE_CHECKERBOARD) {
+			// 模式 A: 验证透视矫正 (直线是否笔直)
+			tex_color = texture->getColorCheckerboard(uv.x, uv.y);
+		}
+		else if (sample_mode == MODE_BILINEAR) {
+			// 模式 B: 验证双线性插值 (低分辨率是否平滑)
+			tex_color = texture->getColorBilinear(uv.x, uv.y);
+		}
+	}
+
+	// 最终的反照率 (Albedo) = 材质颜色(k_d) * 纹理颜色
+	// 这就是 "Modulation"：材质颜色“染”了纹理颜色
+	Vec3f albedo = k_d * tex_color;
+
+	// ------------------------------------------
+	// C. 计算 Blinn-Phong 光照模型
 	// ------------------------------------------
 
 	// 0. 光照衰减 (物理上是 1/r^2)
@@ -62,15 +94,21 @@ Vec3f BlinnPhongShader::fragment(float alpha, float beta, float gamma) {
 	Vec3f radiance = light.intensity * (1.0f / dist_sq);
 
 	// 1. 环境光 (Ambient) - L_a
-	Vec3f ambient = k_a * 0.1f; // 这里的 0.1f 是环境光能量系数
+	// 注意：环境光通常被认为是全局的，不参与距离衰减，也不受 n_dot_l 影响
+	// 简单的环境光 = 材质环境反射率 * 简单的环境亮度(0.5,0.5,0.5) * 纹理(可选)
+	// 也可以让环境光也受纹理影响：
+	Vec3f ambient = k_a * Vec3f(0.5f, 0.5f, 0.5f) * tex_color;
 
 	// 2. 漫反射 (Diffuse) - L_d
-	// 公式：Kd * (I/r^2) * max(0, n dot l)
+	// 公式：Kd * (I/r^2) * max(0, n dot l) 
+	// (反照率) * (到达的光强) * (几何角度衰减)
 	float diff_factor = std::max(0.0f, normal.dot(L));
-	Vec3f diffuse = k_d * radiance * diff_factor;
+	Vec3f diffuse = albedo * radiance * diff_factor;
 
 	// 3. 高光 (Specular) - L_s
 	// 公式：Ks * (I/r^2) * max(0, n dot h)^p
+	// 高光通常是光源的颜色反射，不受物体纹理颜色影响（除非是金属）
+	// 所以这里只乘 k_s，不乘 tex_color
 	float spec_factor = std::pow(std::max(0.0f, normal.dot(H)), p);
 	Vec3f specular = k_s * radiance * spec_factor;
 
@@ -83,7 +121,7 @@ Vec3f BlinnPhongShader::fragment(float alpha, float beta, float gamma) {
 // ==========================================
 // Gouraud Vertex Shader (光照计算发生在这里)
 // ==========================================
-Vec4f GouraudShader::vertex(int iface, int vert_idx) {
+Vec4f GouraudShader::vertex(int iface, size_t vert_idx) {
 	// 1. 读取输入
 	Vec3f raw_pos = in_positions[vert_idx];
 	Vec3f raw_nor = in_normals[vert_idx];
@@ -134,7 +172,7 @@ Vec3f GouraudShader::fragment(float alpha, float beta, float gamma) {
 }
 
 // Vertex Shader
-Vec4f ClassicPhongShader::vertex(int iface, int vert_idx) {
+Vec4f ClassicPhongShader::vertex(int iface, size_t vert_idx) {
 	Vec3f raw_pos = in_positions[vert_idx];
 	Vec3f raw_nor = in_normals[vert_idx];
 

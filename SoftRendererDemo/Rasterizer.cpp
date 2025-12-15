@@ -1,4 +1,4 @@
-﻿#include "Rasterizer.h"
+#include "Rasterizer.h"
 #include <algorithm>
 #include <iostream>
 #include <fstream>
@@ -44,7 +44,7 @@ void Rasterizer::set_pixel(int x, int y, const Vec3f& color) {
 // ==========================================
 // 新增：Barycentric 坐标计算辅助函数
 // ==========================================
-std::tuple<float, float, float> Rasterizer::compute_barycentric_2d(float x, float y, const Vec3f* v) {
+std::tuple<float, float, float> Rasterizer::compute_barycentric_2d(float x, float y, const Vec4f* v) {
 	float c1 = (x * (v[1].y - v[2].y) + (v[2].x - v[1].x) * y + v[1].x * v[2].y - v[2].x * v[1].y) / (v[0].x * (v[1].y - v[2].y) + (v[2].x - v[1].x) * v[0].y + v[1].x * v[2].y - v[2].x * v[1].y);
 	float c2 = (x * (v[2].y - v[0].y) + (v[0].x - v[2].x) * y + v[2].x * v[0].y - v[0].x * v[2].y) / (v[1].x * (v[2].y - v[0].y) + (v[0].x - v[2].x) * v[1].y + v[2].x * v[0].y - v[0].x * v[2].y);
 	float c3 = 1.0f - c1 - c2;
@@ -52,90 +52,128 @@ std::tuple<float, float, float> Rasterizer::compute_barycentric_2d(float x, floa
 }
 
 // ==========================================
-// 新增：核心 Draw 函数 (Vertex Shader 调度)
+// draw 函数：几何处理阶段
 // ==========================================
-void Rasterizer::draw(IShader& shader, int n_verts) {
-	for (int i = 0; i < n_verts; i += 3) {
-		Vec4f clip_space_verts[3];
+void Rasterizer::draw(IShader& shader, size_t n_verts) {
+	// 每次处理 3 个顶点 (GL_TRIANGLES)
+	for (size_t i = 0; i < n_verts; i += 3) {
 
-		// 1. 运行 Vertex Shader
-		for (int j = 0; j < 3; j++) {
-			// j 是三角形内索引 (0,1,2), i+j 是全局顶点索引
-			clip_space_verts[j] = shader.vertex(j, i + j);
+		// A. 顶点着色器 (Vertex Shader) -> 裁剪空间
+		Vec4f v_clip[3];
+		for (int k = 0; k < 3; ++k) {
+			v_clip[k] = shader.vertex(k, i + k);
 		}
 
-		// 2. 调用光栅化
-		// (这里可以添加 裁剪 Clipping 逻辑)
-		draw_triangle(shader, clip_space_verts);
+		// B. 简单的视锥剔除 (Clipping)
+		// 只要有一个点在相机背后 (w <= 0)，就丢弃整个三角形
+		// (完善的引擎会在这里进行 Viewport Clipping，将三角形切割)
+		if (v_clip[0].w <= 0 || v_clip[1].w <= 0 || v_clip[2].w <= 0) {
+			continue;
+		}
+
+		// C. 准备透视矫正数据
+		// 保存 1/w，后续光栅化时插值用
+		float w_recip[3];
+		for (int k = 0; k < 3; ++k) {
+			w_recip[k] = 1.0f / v_clip[k].w;
+		}
+
+		// D. 透视除法 (Perspective Division) -> NDC (-1 ~ 1)
+		Vec4f v_ndc[3];
+		for (int k = 0; k < 3; ++k) {
+			v_ndc[k].x = v_clip[k].x * w_recip[k];
+			v_ndc[k].y = v_clip[k].y * w_recip[k];
+			v_ndc[k].z = v_clip[k].z * w_recip[k];
+			v_ndc[k].w = 1.0f; // w 归一化，不再携带深度信息
+		}
+
+		// E. 视口变换 (Viewport Transform) -> 屏幕空间
+		Vec4f v_screen[3];
+		for (int k = 0; k < 3; ++k) {
+			// x: [-1, 1] -> [0, width]
+			v_screen[k].x = 0.5f * width * (v_ndc[k].x + 1.0f);
+			// y: [-1, 1] -> [0, height]
+			v_screen[k].y = 0.5f * height * (v_ndc[k].y + 1.0f);
+			// z: 保持 NDC z，用于深度测试
+			v_screen[k].z = v_ndc[k].z;
+			// w: 这里的 w 实际上没用了，但为了数据结构统一先放着
+			v_screen[k].w = v_clip[k].w;
+		}
+
+		// F. 进入光栅化阶段
+		rasterize_triangle(v_screen, w_recip, shader);
 	}
 }
 
-void Rasterizer::draw_triangle(IShader& shader, const Vec4f* clips) {
-	Vec3f v[3];
-
-	// 1. 视口变换 (Viewport Transform)
-	for (int i = 0; i < 3; i++) {
-		float inv_w = 1.0f / clips[i].w;
-		Vec3f ndc = { clips[i].x * inv_w, clips[i].y * inv_w, clips[i].z * inv_w };
-
-		v[i].x = 0.5f * width * (ndc.x + 1.0f);
-		v[i].y = 0.5f * height * (ndc.y + 1.0f);
-		v[i].z = ndc.z; // 简单线性 Z，不做透视校正插值
-	}
-
-	// 2. 包围盒 (Bounding Box)
+void Rasterizer::rasterize_triangle(const Vec4f v[], const float w_recip[], IShader& shader) {
+	// 1. 包围盒计算 (Bounding Box)
 	float min_x = std::min({ v[0].x, v[1].x, v[2].x });
 	float max_x = std::max({ v[0].x, v[1].x, v[2].x });
 	float min_y = std::min({ v[0].y, v[1].y, v[2].y });
 	float max_y = std::max({ v[0].y, v[1].y, v[2].y });
 
-	// 限制在屏幕范围内
-	min_x = std::max(0.0f, (float)floor(min_x));
-	max_x = std::min((float)width - 1, (float)ceil(max_x));
-	min_y = std::max(0.0f, (float)floor(min_y));
-	max_y = std::min((float)height - 1, (float)ceil(max_y));
+	int x0 = std::max(0, (int)std::floor(min_x));
+	int x1 = std::min(width - 1, (int)std::ceil(max_x));
+	int y0 = std::max(0, (int)std::floor(min_y));
+	int y1 = std::min(height - 1, (int)std::ceil(max_y));
 
-	// 3. 遍历像素
-	for (int y = (int)min_y; y <= (int)max_y; y++) {
-		for (int x = (int)min_x; x <= (int)max_x; x++) {
+	// 2. 遍历像素
+	for (int y = y0; y <= y1; ++y) {
+		for (int x = x0; x <= x1; ++x) {
 
-			// ==========================================
-			// RGSS 4x 采样循环
-			// ==========================================
-			for (int k = 0; k < 4; k++) {
+			// 获取当前像素在 Buffer 中的起始索引 (对应 4 个采样点的第 1 个)
+			// 假设 get_index 返回的是像素块的起始位置
+			int pixel_base_index = get_index(x, y);
 
-				// 3.1 计算当前采样点的精确屏幕坐标
-				// 不再是 x + 0.5, 而是加上偏移量
-				float sx = (float)x + rgss_offsets[k][0];
-				float sy = (float)y + rgss_offsets[k][1];
+			// === RGSS 采样循环 ===
+			for (int k = 0; k < 4; ++k) {
+				// A. 计算采样点坐标
+				float px = x + rgss_offsets[k][0];
+				float py = y + rgss_offsets[k][1];
 
-				// 3.2 针对该采样点计算重心坐标
-				auto [alpha, beta, gamma] = compute_barycentric_2d(sx, sy, v);
+				// B. 计算屏幕空间重心坐标
+				auto [alpha, beta, gamma] = compute_barycentric_2d(px, py, v);
 
-				// 3.3 覆盖测试 (Inside Test)
-				if (alpha >= 0 && beta >= 0 && gamma >= 0) {
+				// C. 覆盖测试 (Inside Test)
+				if (alpha < 0 || beta < 0 || gamma < 0) continue;
 
-					// 3.4 深度插值 (Z-Interpolation)
-					float z_interpolated = alpha * v[0].z + beta * v[1].z + gamma * v[2].z;
+				// D. 透视矫正核心 (针对当前采样点)
+				// ---------------------------------------------------------
+				// 这里的 alpha/beta/gamma 是针对该采样点的，所以 correction 也是独立的
 
-					// 3.5 深度测试 (Z-Test)
-					// 获取当前像素的第 k 个采样点的索引
-					// 注意：get_index 返回像素块起始位置，我们需要 +k 访问子采样点
-					int idx = get_index(x, y) + k;
+				// 插值 1/w
+				float interpolated_w_recip = alpha * w_recip[0] + beta * w_recip[1] + gamma * w_recip[2];
 
-					if (z_interpolated < depth_buffer[idx]) {
+				// 为了防止除以 0 (虽然理论上屏幕内的点 w 都在 view frustum 内)
+				if (std::abs(interpolated_w_recip) < 1e-5) continue;
 
-						// 3.6 调用 Shader (SSAA: 每个采样点都计算颜色)
-						// 这会带来更精确的纹理采样和光照
-						Vec3f pixel_color = shader.fragment(alpha, beta, gamma);
+				// 计算透视矫正后的权重
+				float alpha_p = (alpha * w_recip[0]) / interpolated_w_recip;
+				float beta_p = (beta * w_recip[1]) / interpolated_w_recip;
+				float gamma_p = (gamma * w_recip[2]) / interpolated_w_recip;
 
-						// 3.7 写入子采样缓冲区
-						frame_buffer[idx] = pixel_color;
-						depth_buffer[idx] = z_interpolated;
-					}
+				// E. 深度测试 (Z-Buffer)
+				// ---------------------------------------------------------
+				// 同样，Z 值也要针对采样点插值
+				float z_interpolated = alpha * v[0].z + beta * v[1].z + gamma * v[2].z;
+
+				// 对应的采样点索引
+				int sample_index = pixel_base_index + k;
+
+				if (z_interpolated < depth_buffer[sample_index]) {
+					// 更新深度
+					depth_buffer[sample_index] = z_interpolated;
+
+					// F. 执行 Fragment Shader (SSAA 模式)
+					// -----------------------------------------------------
+					// 我们为每个采样点都跑一次 Shader。这对于高频纹理（如棋盘格）
+					// 来说效果最好，因为能同时解决边缘锯齿和纹理内部锯齿。
+					Vec3f color = shader.fragment(alpha_p, beta_p, gamma_p);
+
+					// 写入颜色缓冲
+					frame_buffer[sample_index] = color;
 				}
-			} // end sample loop
-
+			}
 		}
 	}
 }

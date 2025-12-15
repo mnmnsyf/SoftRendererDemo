@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "Rasterizer.h" // 包含 IShader 和 Light 的定义
 #include "Math.h"
+#include "Texture.h"
 #include <vector>
 
 // BlinnPhongShader：支持环境光、漫反射、高光
@@ -21,22 +22,35 @@ struct BlinnPhongShader : public IShader {
 	Vec3f k_s = { 1.0f, 1.0f, 1.0f }; // Specular
 	float p = 150.0f;                 // Shininess (高光指数)
 
+	// 纹理属性
+	Texture* texture = nullptr; // 持有纹理指针
+	bool use_texture = false;   // 纹理开关
+
 	// ==========================================
 	// Attributes (输入数据)
 	// ==========================================
 	std::vector<Vec3f> in_positions;
 	std::vector<Vec3f> in_normals;
+	std::vector<Vec2f> in_uvs;  //  UV 输入数组
 
 	// ==========================================
 	// Varyings (插值数据)
 	// ==========================================
 	Vec3f varying_world_pos[3];
 	Vec3f varying_normal[3];
+	Vec2f varying_uv[3];        // UV 插值变量
+
+	// 采样模式控制
+	enum SampleMode {
+		MODE_CHECKERBOARD = 0, // 程序化棋盘格 (验证透视)
+		MODE_BILINEAR = 1      // 双线性插值 (验证采样)
+	};
+	SampleMode sample_mode = MODE_BILINEAR;
 
 	// ==========================================
 	// 接口实现声明 (Override)
 	// ==========================================
-	virtual Vec4f vertex(int iface, int vert_idx) override;
+	virtual Vec4f vertex(int iface, size_t vert_idx) override;
 	virtual Vec3f fragment(float alpha, float beta, float gamma) override;
 };
 
@@ -57,7 +71,7 @@ struct VertexColorShader : public IShader {
 	Vec3f varying_color[3];
 
 	// 顶点着色器
-	virtual Vec4f vertex(int iface, int vert_idx) override {
+	virtual Vec4f vertex(int iface, size_t vert_idx) override {
 		// 1. 读取数据
 		Vec3f raw_pos = in_positions[vert_idx];
 		Vec3f raw_col = in_colors[vert_idx];
@@ -97,7 +111,7 @@ struct GouraudShader : public IShader {
 	// ==========================================
 	Vec3f varying_color[3];
 
-	virtual Vec4f vertex(int iface, int vert_idx) override;
+	virtual Vec4f vertex(int iface, size_t vert_idx) override;
 	virtual Vec3f fragment(float alpha, float beta, float gamma) override;
 };
 
@@ -123,6 +137,6 @@ struct ClassicPhongShader : public IShader {
 	Vec3f varying_normal[3];
 
 	// 接口
-	virtual Vec4f vertex(int iface, int vert_idx) override;
+	virtual Vec4f vertex(int iface, size_t vert_idx) override;
 	virtual Vec3f fragment(float alpha, float beta, float gamma) override;
 };

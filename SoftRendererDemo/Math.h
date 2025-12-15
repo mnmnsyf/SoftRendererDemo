@@ -1,6 +1,17 @@
 ﻿#pragma once
 #include <cmath>
 
+struct Vec2f {
+	float x, y;
+
+	Vec2f() : x(0.0f), y(0.0f) {}
+    Vec2f(float _x, float _y) : x(_x), y(_y) {}
+
+	// 运算符重载
+	Vec2f operator+(const Vec2f& rhs) const;
+	Vec2f operator*(float scalar) const;
+};
+
 struct Vec3f {
     float x, y, z;
     // 1. 构造函数

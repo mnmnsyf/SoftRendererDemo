@@ -1,122 +1,8 @@
-﻿#pragma once
-#include <iostream>
-#include "Math.h"
-#include <cmath>
+﻿#include <iostream>
 #include "Rasterizer.h"
-#include "Shader.h"
-
-// ==========================================
-// 辅助：简单的 Mesh 结构
-// ==========================================
-struct Mesh {
-	std::vector<Vec3f> positions;
-	std::vector<Vec3f> normals;
-	std::vector<int> indices; // 可选，如果不使用索引绘制，需要展平
-};
-
-// ==========================================
-// 辅助：生成球体数据
-// radius: 半径
-// slices, stacks: 细分程度 (比如 20, 20)
-// use_flat_normals: 
-//    true  -> 生成“面法线” (Flat Shading 效果，顶点不共用，法线垂直于面)
-//    false -> 生成“顶点法线” (Smooth/Phong 效果，顶点共用，法线指向外)
-// ==========================================
-Mesh generate_sphere(float radius, int slices, int stacks, bool use_flat_normals) {
-	Mesh mesh;
-	float pi = 3.14159265359f;
-
-	if (use_flat_normals) {
-		// --- 模式 A: Flat Shading (独立三角形，硬棱角) ---
-		// 这种模式下，我们直接生成互不相连的三角形
-		for (int i = 0; i < slices; ++i) {
-			for (int j = 0; j < stacks; ++j) {
-				// 计算一个 Quad 的 4 个角点 (theta: 经度, phi: 纬度)
-				// 确定球面上任何一个点，只需要知道三个数：半径(Radius, r)：球有多大。
-				// 经度(Longitude, theta)：水平方向的角度，转一圈是 0 到 2pi(360度)。
-				// 纬度(Latitude, phi)：垂直方向的角度，从北极到南极是 0 到 pi(180度)。
-				float theta1 = (float)i / slices * 2 * pi;
-				float theta2 = (float)(i + 1) / slices * 2 * pi;
-				float phi1 = (float)j / stacks * pi;
-				float phi2 = (float)(j + 1) / stacks * pi;
-
-				// 简单的球面坐标转笛卡尔坐标 lambda
-				auto get_pos = [&](float theta, float phi) {
-					return Vec3f(
-						radius * sin(phi) * cos(theta),
-						radius * cos(phi), // Y-up
-						radius * sin(phi) * sin(theta)
-					);
-					};
-
-				Vec3f p0 = get_pos(theta1, phi1);// 当前点
-				Vec3f p1 = get_pos(theta2, phi1);// 右边的点
-				Vec3f p2 = get_pos(theta1, phi2);// 下边的点
-				Vec3f p3 = get_pos(theta2, phi2);// 右下角的点
-
-				// 拆分成两个三角形: T1(p0, p2, p1), T2(p1, p2, p3)
-				// 计算面法线 (Face Normal)
-				Vec3f n1 = (p1 - p0).cross(p2 - p0).normalize();
-				Vec3f n2 = (p3 - p1).cross(p2 - p1).normalize();
-
-				// 存入 T1
-				mesh.positions.push_back(p0); mesh.normals.push_back(n1);
-				mesh.positions.push_back(p2); mesh.normals.push_back(n1);
-				mesh.positions.push_back(p1); mesh.normals.push_back(n1);
-
-				// 存入 T2
-				mesh.positions.push_back(p1); mesh.normals.push_back(n2);
-				mesh.positions.push_back(p2); mesh.normals.push_back(n2);
-				mesh.positions.push_back(p3); mesh.normals.push_back(n2);
-			}
-		}
-	}
-	else {
-		// --- 模式 B: Smooth Shading (共享顶点，插值法线) ---
-		// 这种模式下，法线就是 Vertex -> Pos 的方向
-		for (int j = 0; j <= stacks; ++j) {
-			float phi = (float)j / stacks * pi;
-			for (int i = 0; i <= slices; ++i) {
-				float theta = (float)i / slices * 2 * pi;
-
-				float x = sin(phi) * cos(theta);
-				float y = cos(phi);
-				float z = sin(phi) * sin(theta);
-
-				mesh.positions.push_back(Vec3f(x * radius, y * radius, z * radius));
-				mesh.normals.push_back(Vec3f(x, y, z)); // 归一化的法线
-			}
-		}
-
-		// 生成索引 (EBO) - 这里我们为了 Rasterizer 接口简单，手动展开成纯顶点数组
-		// 如果你的 Rasterizer 支持 draw_elements 可以直接用 indices
-		// 这里做一个临时的转换：Mesh 结构虽然有 indices 但我们在下面手动展平它
-		std::vector<Vec3f> flat_pos;
-		std::vector<Vec3f> flat_nor;
-
-		for (int j = 0; j < stacks; ++j) {
-			for (int i = 0; i < slices; ++i) {
-				int p0 = j * (slices + 1) + i;
-				int p1 = p0 + 1;
-				int p2 = (j + 1) * (slices + 1) + i;
-				int p3 = p2 + 1;
-
-				// T1: p0, p2, p1
-				flat_pos.push_back(mesh.positions[p0]); flat_nor.push_back(mesh.normals[p0]);
-				flat_pos.push_back(mesh.positions[p2]); flat_nor.push_back(mesh.normals[p2]);
-				flat_pos.push_back(mesh.positions[p1]); flat_nor.push_back(mesh.normals[p1]);
-
-				// T2: p1, p2, p3
-				flat_pos.push_back(mesh.positions[p1]); flat_nor.push_back(mesh.normals[p1]);
-				flat_pos.push_back(mesh.positions[p2]); flat_nor.push_back(mesh.normals[p2]);
-				flat_pos.push_back(mesh.positions[p3]); flat_nor.push_back(mesh.normals[p3]);
-			}
-		}
-		mesh.positions = flat_pos;
-		mesh.normals = flat_nor;
-	}
-	return mesh;
-}
+#include "Texture.h"
+#include "Geometry.h"
+#include "RenderUtils.h"
 
 // ==========================================
 // 验证测试：Flat vs Gouraud vs Phong
@@ -361,11 +247,194 @@ void run_z_buffer_test() {
 	r.save_depth_to_ppm("z_test_depth.ppm");
 }
 
-int main() {
+// ==========================================
+// demo：纹理调制 
+// ==========================================
+void run_texture_test() {
+	std::cout << "Running Texture Modulation" << std::endl;
 
-	//run_rainbow_triangle_demo();
-	//run_z_buffer_test();
-	//run_shading_test();
+	const int width = 800;
+	const int height = 600;
+	Rasterizer r(width, height);
+
+	// --- 1. 准备纹理 ---
+	Texture checker_tex;
+	checker_tex.setScale(10.0f); // 10x10 的格子
+	checker_tex.setColors(Vec3f(1.0f, 1.0f, 1.0f), Vec3f(0.1f, 0.1f, 0.1f)); // 白/黑格
+
+	// --- 2. 准备 Shader ---
+	BlinnPhongShader shader;
+	// 变换矩阵
+	Vec3f eye(0, 0, 3.0f);
+	Vec3f center(0, 0, 0);
+	Vec3f up(0, 1, 0);
+	shader.view = Mat4::lookAt(eye, center, up);
+	shader.projection = Mat4::perspective(45.0f, (float)width / height, 0.1f, 100.0f);
+	shader.model = Mat4::identity();
+	shader.camera_pos = eye;
+
+	// --- 3. 设置光照 (配合物理衰减 1/r^2) ---
+	// 光源位置放在右上方
+	shader.light.position = Vec3f(2.0f, 2.0f, 2.0f);
+
+	// 物理衰减非常快，需要极高的强度才能照亮物体
+	// 距离约 sqrt(2^2+2^2+2^2) = sqrt(12) ≈ 3.46
+	// 距离平方 ≈ 12
+	// 如果想要表面亮度约为 1.0，强度至少设为 12 以上，考虑漫反射角度，设为 50~100 比较合适
+	shader.light.intensity = Vec3f(80.0f, 80.0f, 80.0f);
+
+	// --- 4. 设置材质与纹理 ---
+	shader.texture = &checker_tex;
+	shader.use_texture = true;
+	shader.p = 150.0f; // 高光锐度
+
+	// 演示“调制(Modulation)”效果：
+	// 我们把材质底色 k_d 设为红色。
+	// 预期结果：白格子变红，黑格子依然黑（红色 * 白色 = 红色）。
+	shader.k_d = Vec3f(1.0f, 0.2f, 0.2f);
+	shader.k_a = Vec3f(0.01f, 0.01f, 0.01f); // 环境光很弱
+	shader.k_s = Vec3f(1.0f, 1.0f, 1.0f);    // 白光高光
+
+	// --- 5. 生成并传递几何数据 ---
+	Mesh sphere = generate_sphere(1.0f, 40, 40);
+
+	// 将索引数据展开传给 Shader
+	bind_mesh_to_shader(sphere, shader);
+
+	// --- 6. 绘制 ---
+	r.clear(Vec3f(0, 0, 0)); // 清除背景为黑色
+
+	// 注意：draw 接受的是顶点数量
+	r.draw(shader, shader.in_positions.size());
+
+	r.save_to_ppm("texture_modulation_test.ppm");
+	std::cout << "Done. Saved to texture_modulation_test.ppm" << std::endl;
+}
+
+// ==========================================
+// demo:集成测试函数
+// ==========================================
+void run_integrated_test() {
+	std::cout << "Starting Integrated Test..." << std::endl;
+
+	const int width = 800;
+	const int height = 600;
+	Rasterizer r(width, height);
+
+	// --- 准备资源 ---
+	Mesh quad = generate_quad();
+	Texture tex;
+
+	// 配置纹理参数
+	// A. 这里的 scale 决定了棋盘格的密度
+	tex.setScale(10.0f);
+	// B. 创建一个极低分辨率的 Buffer (16x16)，用于测试 Bilinear 的模糊效果
+	tex.createTestPattern(16, 16);
+
+	// --- 准备 Shader ---
+	BlinnPhongShader shader;
+	shader.texture = &tex;
+	shader.use_texture = true;
+
+	// 设置高环境光，让纹理看得更清楚，不受光照角度影响太深
+	shader.k_a = Vec3f(0.8f, 0.8f, 0.8f);
+	shader.k_d = Vec3f(0.2f, 0.2f, 0.2f);
+	shader.light.position = Vec3f(0, 0, 10);
+	shader.light.intensity = Vec3f(10, 10, 10);
+
+	// --- 变换矩阵 setup (制造透视) ---
+	// 1. Camera: 放在高处
+	Vec3f eye(0, 0.5f, 2.5f);
+	Vec3f center(0, 0, 0);
+	Vec3f up(0, 1, 0);
+	shader.view = Mat4::lookAt(eye, center, up);
+	shader.projection = Mat4::perspective(45.0f, (float)width / height, 0.1f, 100.0f);
+
+	// 2. Model: 将正方形放倒并旋转，产生透视纵深感
+	// 先平移到 z=-1，并绕 X 转 -60度
+
+	Mat4 translation = Mat4::translate(0, 0, -1.0f);
+	Mat4 rotation = Mat4::rotateX(-60) * Mat4::rotateY(30);
+
+	shader.model = translation * rotation;
+	shader.camera_pos = eye;
+
+	// 传递顶点数据
+	bind_mesh_to_shader(quad, shader);
+
+	// ==========================================
+	// 测试 1: 透视矫正 (Checkerboard)
+	// ==========================================
+	std::cout << "Rendering Pass 1: Perspective Correction Check..." << std::endl;
+	shader.sample_mode = BlinnPhongShader::MODE_CHECKERBOARD; // <--- 切换模式
+
+	r.clear(Vec3f(0.5f, 0.7f, 0.9f)); // 天空蓝背景
+	r.draw(shader, shader.in_positions.size());
+	r.save_to_ppm("test_01_perspective.ppm");
+
+	// ==========================================
+	// 测试 2: 双线性插值 (Bilinear)
+	// ==========================================
+	std::cout << "Rendering Pass 2: Bilinear Interpolation Check..." << std::endl;
+	shader.sample_mode = BlinnPhongShader::MODE_BILINEAR; // <--- 切换模式
+
+	r.clear(Vec3f(0.5f, 0.7f, 0.9f)); // 天空蓝背景
+	r.draw(shader, shader.in_positions.size());
+	r.save_to_ppm("test_02_bilinear.ppm");
+}
+
+
+// ==========================================
+// demo:scene_image_texture
+// ==========================================
+void scene_image_texture_test() {
+	std::cout << "[Test] Image Texture Loading..." << std::endl;
+	Rasterizer r(800, 600);
+
+	// 1. 创建纹理并加载图片
+	Texture tex;
+	// 尝试加载图片 (请确保文件存在!)
+	if (!tex.loadTexture("emoji.png")) {
+		std::cerr << "Error: Could not load emoji.png. Make sure the file is in the working directory." << std::endl;
+		// 如果失败，生成一个测试图兜底
+		tex.createTestPattern(64, 64);
+	}
+	tex.setScale(10.0f);
+
+	// 2. 创建 Mesh
+	Mesh quad = generate_quad();
+
+	// 3. 配置 Shader
+	BlinnPhongShader shader;
+	setup_base_shader(shader, 800, 600);
+
+	Mat4 translation = Mat4::translate(0, 0, -1.0f);
+	Mat4 rotation = Mat4::rotateX(-60);
+
+	shader.model = translation * rotation;
+	shader.view = Mat4::lookAt(Vec3f(0, 0, 3), Vec3f(0, 0, 0), Vec3f(0, 1, 0));
+	shader.camera_pos = Vec3f(0, 0, 3);
+
+	shader.texture = &tex;
+	shader.use_texture = true;
+	shader.sample_mode = BlinnPhongShader::MODE_BILINEAR;
+
+	// 4. 绘制
+	bind_mesh_to_shader(quad, shader);
+	r.clear(Vec3f(0.5f, 0.7f, 0.9f));
+	r.draw(shader, shader.in_positions.size());
+	r.save_to_ppm("output_image_texture.ppm");
+}
+
+int main() {
+	/*run_rainbow_triangle_demo();
+	run_z_buffer_test();
+	run_shading_test();
 	run_specular_comparison();
+	run_texture_test();
+	run_integrated_test();*/
+
+	scene_image_texture_test();
+	
     return 0;
 }

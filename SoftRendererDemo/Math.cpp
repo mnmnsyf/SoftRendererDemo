@@ -7,6 +7,17 @@
 #define TO_RAD(deg) ((deg) * PI / 180.0f)
 
 // ==========================================
+// Vec2f 实现
+// ==========================================
+Vec2f Vec2f::operator+(const Vec2f& rhs) const {
+	return Vec2f(x + rhs.x, y + rhs.y);
+}
+
+Vec2f Vec2f::operator*(float scalar) const {
+	return Vec2f(x * scalar, y * scalar);
+}
+
+// ==========================================
 // Vec3f 实现
 // ==========================================
 Vec3f Vec3f::operator+(const Vec3f& rhs) const {
