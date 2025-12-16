@@ -394,7 +394,7 @@ void scene_image_texture_test() {
 	// 1. 创建纹理并加载图片
 	Texture tex;
 	// 尝试加载图片 (请确保文件存在!)
-	if (!tex.loadTexture("emoji.png")) {
+	if (!tex.loadTexture("assets/textures/emoji.png")) {
 		std::cerr << "Error: Could not load emoji.png. Make sure the file is in the working directory." << std::endl;
 		// 如果失败，生成一个测试图兜底
 		tex.createTestPattern(64, 64);

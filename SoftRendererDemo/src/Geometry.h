@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include <vector>
-#include "Math.h"
+#include "GMath.h"
 
 // 基础网格结构
 struct Mesh {

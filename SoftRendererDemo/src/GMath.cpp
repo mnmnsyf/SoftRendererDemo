@@ -1,4 +1,4 @@
-﻿#include "Math.h"
+﻿#include "GMath.h"
 #include <cmath>
 
 // 辅助宏或常量：角度转弧度

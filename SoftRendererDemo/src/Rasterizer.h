@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 #include <limits>
-#include "Math.h"
+#include "GMath.h"
 
 // ==========================================
 // 定义灯光结构

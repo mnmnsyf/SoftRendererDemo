@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "Rasterizer.h" // 包含 IShader 和 Light 的定义
-#include "Math.h"
+#include "GMath.h"
 #include "Texture.h"
 #include <vector>
 
