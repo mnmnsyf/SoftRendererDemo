@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <cmath>
 
 struct Vec2f {
@@ -10,6 +10,7 @@ struct Vec2f {
 	// 运算符重载
 	Vec2f operator+(const Vec2f& rhs) const;
 	Vec2f operator*(float scalar) const;
+	Vec2f operator/(float scalar) const;
 };
 
 struct Vec3f {
@@ -22,6 +23,7 @@ struct Vec3f {
     Vec3f operator+(const Vec3f& rhs) const; // 加法
     Vec3f operator-(const Vec3f& rhs) const; // 减法
     Vec3f operator*(float scalar) const;    // 数乘 (向量 * 标量)
+    Vec3f operator/(float scalar) const;    // 除法
     Vec3f operator*(const Vec3f& v) const;  // 向量与向量的分量相乘 (Hadamard Product)
 
     // 3. 高级运算
@@ -39,6 +41,13 @@ struct Vec4f {
 
     // 支持从 Vec3f + w 构造
     Vec4f(const Vec3f& v, float _w) : x(v.x), y(v.y), z(v.z), w(_w) {}
+
+	Vec4f operator+(const Vec4f& rhs) const; // 向量加法
+	Vec4f operator-(const Vec4f& rhs) const; // 向量减法
+	Vec4f operator*(float scalar) const;     // 数乘
+	Vec4f operator/(float scalar) const;     // 除法
+
+    Vec3f xyz() const { return Vec3f(x, y, z); }
 };
 
 struct Mat4 {
@@ -70,4 +79,16 @@ struct Mat4 {
 
     // 视口变换：输入屏幕宽高
     static Mat4 viewport(float width, float height);
+};
+
+struct GMath {
+	// 标量 lerp
+	static float lerp(float a, float b, float t) {
+		return a + (b - a) * t;
+	}
+
+	// 向量 lerp
+	static Vec3f lerp(const Vec3f& a, const Vec3f& b, float t) {
+		return a + (b - a) * t;
+	}
 };

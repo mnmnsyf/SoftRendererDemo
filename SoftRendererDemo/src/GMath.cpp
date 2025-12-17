@@ -1,4 +1,4 @@
-﻿#include "GMath.h"
+#include "GMath.h"
 #include <cmath>
 
 // 辅助宏或常量：角度转弧度
@@ -30,6 +30,10 @@ Vec3f Vec3f::operator-(const Vec3f& rhs) const {
 
 Vec3f Vec3f::operator*(float scalar) const {
 	return Vec3f(x * scalar, y * scalar, z * scalar);
+}
+
+Vec3f Vec3f::operator/(float scalar) const {
+	return Vec3f(x / scalar, y / scalar, z / scalar);
 }
 
 Vec3f Vec3f::operator*(const Vec3f& v) const
@@ -76,6 +80,27 @@ Mat4::Mat4() {
         for (int j = 0; j < 4; ++j)
             m[i][j] = 0.0f;
 }
+
+Vec4f Vec4f::operator+(const Vec4f& rhs) const
+{
+    return Vec4f(x + rhs.x, y + rhs.y, z + rhs.z, w + rhs.w);
+}
+
+Vec4f Vec4f::operator-(const Vec4f& rhs) const
+{
+    return Vec4f(x - rhs.x, y - rhs.y, z - rhs.z, w - rhs.w);
+}
+
+Vec4f Vec4f::operator*(float scalar) const
+{
+	return Vec4f(x * scalar, y * scalar, z * scalar, w * scalar);
+}
+
+Vec4f Vec4f::operator/(float scalar) const
+{
+	return Vec4f(x / scalar, y / scalar, z / scalar, w / scalar);
+}
+
 
 // 静态方法：生成单位矩阵
 // 1 0 0 0
