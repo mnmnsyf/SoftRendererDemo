@@ -217,6 +217,118 @@ void Rasterizer::rasterize_triangle(const Vec4f v[], const float w_recip[], ISha
 	}
 }
 
+void Rasterizer::draw_wireframe(IShader& shader, size_t n_verts) {
+	// 裁剪平面的 W 阈值 (Near Plane Clipping)
+	const float W_NEAR = 0.1f;
+
+	// Lambda: 处理单一线段的裁剪和绘制
+	auto process_segment = [&](Vec4f v1, Vec4f v2) {
+		// 1. 视锥剔除 (简单版)：如果两点都在相机后面，直接扔掉
+		if (v1.w < W_NEAR && v2.w < W_NEAR) return;
+
+		// 2. 齐次空间裁剪 (Homogeneous Clipping)
+		// 如果一条线穿过近平面，必须截断它，否则透视除法会产生无穷大坐标
+		if (v1.w < W_NEAR) {
+			float t = (W_NEAR - v1.w) / (v2.w - v1.w);
+			v1 = v1 + (v2 - v1) * t; // Lerp 截断 v1
+		}
+		else if (v2.w < W_NEAR) {
+			float t = (W_NEAR - v2.w) / (v1.w - v2.w);
+			v2 = v2 + (v1 - v2) * t; // Lerp 截断 v2
+		}
+
+		// 3. 透视除法 (Perspective Division) -> NDC [-1, 1]
+		Vec3f ndc1 = v1.xyz() / v1.w;
+		Vec3f ndc2 = v2.xyz() / v2.w;
+
+		// 4. 视口变换 (Viewport Transform) -> Screen Space
+		// x: [0, w], y: [0, h], z: [0, 1] 或保持 NDC
+		// 这里我们将 Z 保留为 NDC Z 值用于深度测试 (假设 depth buffer 存的是 NDC z)
+		float cx = width * 0.5f;
+		float cy = height * 0.5f;
+
+		Vec3f s1, s2;
+		s1.x = cx * (ndc1.x + 1.0f); s1.y = cy * (ndc1.y + 1.0f); s1.z = ndc1.z; // 或 (ndc1.z + 1.0f) * 0.5f 如果 buffer 是 0-1
+		s2.x = cx * (ndc2.x + 1.0f); s2.y = cy * (ndc2.y + 1.0f); s2.z = ndc2.z;
+
+		// 5. 调用带深度测试的画线
+		draw_line_3d(s1, s2, Vec3f(1.0f, 1.0f, 1.0f)); // 白色线框
+		};
+
+	// 遍历所有三角形的边
+	for (size_t i = 0; i < n_verts; i += 3) {
+		// 顶点着色器处理 (Model -> View -> Projection)
+		Vec4f v0 = shader.vertex(0, i);
+		Vec4f v1 = shader.vertex(1, i + 1);
+		Vec4f v2 = shader.vertex(2, i + 2);
+
+		// 可选：背面剔除 (Back-face Culling)
+		// 计算面法线 Z 分量，如果朝向屏幕内则不画
+		Vec3f n0 = (v0 / v0.w).xyz();
+		Vec3f n1 = (v1 / v1.w).xyz();
+		Vec3f n2 = (v2 / v2.w).xyz();
+		Vec3f edge1 = n1 - n0;
+		Vec3f edge2 = n2 - n0;
+		if (edge1.x * edge2.y - edge1.y * edge2.x < 0) {
+			continue; // 剔除背面，让画面更干净
+		}
+
+		// 画三条边
+		process_segment(v0, v1);
+		process_segment(v1, v2);
+		process_segment(v2, v0);
+	}
+}
+
+// 带有深度测试的 Bresenham 画线算法
+void Rasterizer::draw_line_3d(const Vec3f& p0, const Vec3f& p1, const Vec3f& color) {
+	int x0 = (int)p0.x; int y0 = (int)p0.y; float z0 = p0.z;
+	int x1 = (int)p1.x; int y1 = (int)p1.y; float z1 = p1.z;
+
+	bool steep = std::abs(y1 - y0) > std::abs(x1 - x0);
+	if (steep) { std::swap(x0, y0); std::swap(x1, y1); std::swap(z0, z1); }
+	if (x0 > x1) { std::swap(x0, x1); std::swap(y0, y1); std::swap(z0, z1); }
+
+	int dx = x1 - x0;
+	int dy = std::abs(y1 - y0);
+	int error = dx / 2;
+	int ystep = (y0 < y1) ? 1 : -1;
+	int y = y0;
+
+	float total_dist = (dx == 0) ? 1.0f : (float)dx;
+
+	for (int x = x0; x <= x1; x++) {
+		// 1. 深度插值 (Screen Space Linear Interpolation)
+		float t = (x - x0) / total_dist;
+		float curr_z = z0 + (z1 - z0) * t;
+
+		// 【关键】偏移量 Bias：让线稍微浮在面上一点点，防止 Z-fighting (斑马纹)
+		// 负值通常表示更靠近相机 (取决于你的投影矩阵，假设 Near=0.1 -> Z_NDC=-1)
+		// 如果你的 Depth Buffer 是 0(近)~1(远)，则用减法；反之用加法。
+		float bias = -0.0005f;
+
+		int draw_x = steep ? y : x;
+		int draw_y = steep ? x : y;
+
+		if (draw_x >= 0 && draw_x < width && draw_y >= 0 && draw_y < height) {
+			int idx = get_index(draw_x, draw_y);
+
+			// 2. 深度测试
+			if ((curr_z + bias) < depth_buffer[idx]) {
+				set_pixel(draw_x, draw_y, color);
+				// 3. 线框模式下，通常也可以选择不写入深度，或者写入
+				// depth_buffer[idx] = curr_z + bias; 
+			}
+		}
+
+		error -= dy;
+		if (error < 0) {
+			y += ystep;
+			error += dx;
+		}
+	}
+}
+
 // =============================================
 // 保存 PPM (Downsample / Resolve)
 // =============================================

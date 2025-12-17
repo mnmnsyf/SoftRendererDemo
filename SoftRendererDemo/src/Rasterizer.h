@@ -48,6 +48,9 @@ public:
 	// n_verts: 顶点总数 (通常是 3 的倍数)
 	void draw(IShader& shader, size_t n_verts);
 
+	// 绘制线框模式
+	void draw_wireframe(IShader& shader, size_t n_verts);
+
 private:
 	int width, height;
 	const int SAMPLE_COUNT = 4; // 依然保留 RGSS 结构，但在 draw_new 中我们暂时简化为单采样
@@ -61,6 +64,9 @@ private:
 	// v: 屏幕空间坐标 (x, y, z_ndc, w_original)
 	// w_recip:  三个顶点的 1/w 值，用于透视矫正
 	void rasterize_triangle(const Vec4f v[], const float w_recip[], IShader& shader);
+
+	// Bresenham 画线算法 (带有深度测试)
+	void draw_line_3d(const Vec3f& p0, const Vec3f& p1, const Vec3f& color);
 
 	// 辅助计算重心坐标
 	// 返回 tuple: {alpha, beta, gamma}

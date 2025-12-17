@@ -13,4 +13,6 @@ public:
 	static void normalize_mesh(Mesh& mesh);
 	static void run_model_loading_test();
 	static void run_turntable_animation();
+	static void run_bezier_curve_test();
+	static void run_bezier_surface_test();
 };

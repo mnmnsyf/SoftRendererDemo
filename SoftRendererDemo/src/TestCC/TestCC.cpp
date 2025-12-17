@@ -46,7 +46,7 @@ void TestCC::run_shading_test() {
 		shader.k_d = { 0.8f, 0.2f, 0.2f }; // 红
 		shader.p = 100.0f;
 
-		Mesh mesh = generate_sphere(1.0f, 20, 20, true); // <--- true: 使用面法线
+		Mesh mesh = Geometry::generate_sphere(1.0f, 20, 20, true); // <--- true: 使用面法线
 		shader.in_positions = mesh.positions;
 		shader.in_normals = mesh.normals;
 		r.draw(shader, mesh.positions.size());
@@ -64,7 +64,7 @@ void TestCC::run_shading_test() {
 		shader.k_d = { 0.2f, 0.8f, 0.2f }; // 绿 (方便区分)
 		shader.p = 100.0f;
 
-		Mesh mesh = generate_sphere(1.0f, 20, 20, false); // <--- false: 使用平滑法线
+		Mesh mesh = Geometry::generate_sphere(1.0f, 20, 20, false); // <--- false: 使用平滑法线
 		shader.in_positions = mesh.positions;
 		shader.in_normals = mesh.normals;
 		r.draw(shader, mesh.positions.size());
@@ -82,7 +82,7 @@ void TestCC::run_shading_test() {
 		shader.k_d = { 0.2f, 0.2f, 0.8f }; // 蓝 (方便区分)
 		shader.p = 100.0f;
 
-		Mesh mesh = generate_sphere(1.0f, 20, 20, false); // <--- false: 使用平滑法线
+		Mesh mesh = Geometry::generate_sphere(1.0f, 20, 20, false); // <--- false: 使用平滑法线
 		shader.in_positions = mesh.positions;
 		shader.in_normals = mesh.normals;
 		r.draw(shader, mesh.positions.size());
@@ -115,7 +115,7 @@ void TestCC::run_specular_comparison() {
 	common_light.intensity = { 500.0f, 500.0f, 500.0f };
 
 	// 生成光滑球体模型
-	Mesh sphere = generate_sphere(1.0f, 30, 30, false); // false = Smooth Normals
+	Mesh sphere = Geometry::generate_sphere(1.0f, 30, 30, false); // false = Smooth Normals
 
 	// ==========================================
 	// 1. 左边：Classic Phong
@@ -300,7 +300,7 @@ void TestCC::run_texture_test() {
 	shader.k_s = Vec3f(1.0f, 1.0f, 1.0f);    // 白光高光
 
 	// --- 5. 生成并传递几何数据 ---
-	Mesh sphere = generate_sphere(1.0f, 40, 40);
+	Mesh sphere = Geometry::generate_sphere(1.0f, 40, 40);
 
 	// 将索引数据展开传给 Shader
 	bind_mesh_to_shader(sphere, shader);
@@ -326,7 +326,7 @@ void TestCC::run_integrated_test() {
 	Rasterizer r(width, height);
 
 	// --- 准备资源 ---
-	Mesh quad = generate_quad();
+	Mesh quad = Geometry::generate_quad();
 	Texture tex;
 
 	// 配置纹理参数
@@ -406,7 +406,7 @@ void TestCC::scene_image_texture_test() {
 	tex.setScale(10.0f);
 
 	// 2. 创建 Mesh
-	Mesh quad = generate_quad();
+	Mesh quad = Geometry::generate_quad();
 
 	// 3. 配置 Shader
 	BlinnPhongShader shader;
@@ -539,4 +539,107 @@ void TestCC::run_turntable_animation() {
 		camera.orbit(2.0f * 3.14159f / 36.0f, 0.0f);
 	}
 	std::cout << "\nDone!" << std::endl;
+}
+
+void TestCC::run_bezier_curve_test() {
+	std::cout << "Drawing Cubic Bezier Curve..." << std::endl;
+
+	// 1. 初始化画布 (800x600)
+	const int width = 800;
+	const int height = 600;
+	Rasterizer r(width, height);
+
+	// 背景设为黑色
+	r.clear(Vec3f(0.0f, 0.0f, 0.0f));
+
+	// 2. 定义 4 个控制点 (Z轴设为0即可)
+	Vec3f p0(100.0f, 100.0f, 0.0f);
+	Vec3f p1(200.0f, 400.0f, 0.0f);
+	Vec3f p2(600.0f, 400.0f, 0.0f);
+	Vec3f p3(700.0f, 100.0f, 0.0f);
+
+	Vec3f white_color(1.0f, 1.0f, 1.0f);
+	Vec3f red_color(1.0f, 0.0f, 0.0f); // 用来标记控制点
+
+	// (可选) 先把控制点画出来，方便观察
+	// 这里简单画个 3x3 的方块代表点
+	auto draw_point_marker = [&](Vec3f p) {
+		for (int i = -1; i <= 1; i++)
+			for (int j = -1; j <= 1; j++)
+				r.set_pixel((int)p.x + i, (int)p.y + j, red_color);
+		};
+	draw_point_marker(p0); draw_point_marker(p1);
+	draw_point_marker(p2); draw_point_marker(p3);
+
+	// 3. 遍历 t 计算曲线
+	// 步长 0.001 意味着画 1000 个点
+	for (float t = 0.0f; t <= 1.0f; t += 0.001f) {
+		float u = 1.0f - t;
+		float tt = t * t;
+		float uu = u * u;
+		float uuu = uu * u;
+		float ttt = tt * t;
+
+		// 三次贝塞尔公式: B(t) = (1-t)^3 P0 + 3(1-t)^2 t P1 + 3(1-t) t^2 P2 + t^3 P3
+		// 利用 GMath.h 的运算符重载:
+		Vec3f point = p0 * uuu;                 // (1-t)^3 * P0
+		point = point + p1 * (3.0f * uu * t);   // + 3(1-t)^2 * t * P1
+		point = point + p2 * (3.0f * u * tt);   // + 3(1-t) * t^2 * P2
+		point = point + p3 * ttt;               // + t^3 * P3
+
+		// 4. 画点
+		// 注意：计算结果是 float，屏幕坐标是 int
+		r.set_pixel((int)point.x, (int)point.y, white_color);
+	}
+
+	r.save_to_ppm("bezier_curve.ppm");
+	std::cout << "Done. Saved to bezier_curve.ppm" << std::endl;
+}
+
+void TestCC::run_bezier_surface_test() {
+	std::cout << "Generating Bezier Patch Mesh..." << std::endl;
+
+	// 1. 定义 16 个控制点 (4x4)
+	// 这是一个波浪形的曲面数据 范围大致在 x:[-2, 2], z:[-2, 2]
+	std::vector<Vec3f> cp;
+	float start_x = -2.0f, start_z = -2.0f;
+	float step = 4.0f / 3.0f; // 跨度 4.0，分3段(4个点)
+
+	for (int i = 0; i < 4; i++) { // z轴 (行)
+		for (int j = 0; j < 4; j++) { // x轴 (列)
+			float x = start_x + j * step;
+			float z = start_z + i * step;
+			float y = 0.0f;
+
+			// 制造起伏：中间凸起，角落凹陷
+			if ((i == 1 || i == 2) && (j == 1 || j == 2)) y = 1.5f;
+			if ((i == 0 && j == 0) || (i == 3 && j == 3)) y = -1.0f;
+
+			cp.push_back(Vec3f(x, y, z));
+		}
+	}
+
+	// 2. 生成网格 (细分等级 20 -> 400个小方格 -> 800个三角形)
+	Mesh mesh = Geometry::Bezier::generate_surface_mesh(cp, 20, 20);
+
+	// 3. 渲染流程
+	Rasterizer r(800, 600);
+	r.clear(Vec3f(0.2f, 0.2f, 0.2f));
+
+	BlinnPhongShader shader;
+	setup_base_shader(shader, 800, 600); 
+
+	shader.model = Mat4::translate(0, 0, -3.0f); // 模型位置往 Z 轴深处推 3 米
+	shader.view = Mat4::lookAt(Vec3f(0, -1, 1), Vec3f(0, 0, -1), Vec3f(0, 1, 0));
+
+	// 绑定并绘制
+	bind_mesh_to_shader(mesh, shader);
+
+	r.draw(shader, mesh.indices.size());
+
+	std::cout << "Drawing Wireframe..." << std::endl;
+	r.draw_wireframe(shader, mesh.indices.size());
+
+	r.save_to_ppm("bezier_patch_mesh.ppm");
+	std::cout << "Done. Vertices: " << mesh.positions.size() << std::endl;
 }
