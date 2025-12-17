@@ -1,4 +1,4 @@
-#include "Rasterizer.h"
+﻿#include "Rasterizer.h"
 #include <algorithm>
 #include <iostream>
 #include <fstream>
@@ -51,6 +51,40 @@ std::tuple<float, float, float> Rasterizer::compute_barycentric_2d(float x, floa
 	return { c1, c2, c3 };
 }
 
+bool Rasterizer::is_back_face(const Vec4f& v0, const Vec4f& v1, const Vec4f& v2)
+{
+	// 1. 计算两边向量 (只关心 X, Y)
+	// 向量 A: v0 -> v1
+	float ax = v1.x - v0.x;
+	float ay = v1.y - v0.y;
+
+	// 向量 B: v0 -> v2
+	float bx = v2.x - v0.x;
+	float by = v2.y - v0.y;
+
+	// 2. 计算 2D 叉积 (Z分量)
+	// Cross Z = Ax * By - Ay * Bx
+	float cross_z = ax * by - ay * bx;
+
+	// 3. 判定符号
+	// ---------------------------------------------------------
+	// 关键逻辑：
+	// 标准 OBJ/OpenGL 网格是逆时针 (CCW) 为正面。
+	// 但是！我们的屏幕坐标系通常 Y 轴是向下的 (0 在顶部, height 在底部)。
+	// 这种坐标系的 Y 轴翻转会导致原本的 "逆时针" 在屏幕上看起来变成 "顺时针"。
+	// 
+	// 在 Y 向下的坐标系中：
+	// - 顺时针 (Visual CW)  -> cross_z > 0
+	// - 逆时针 (Visual CCW) -> cross_z < 0
+	//
+	// 因此，原本是 CCW 的正面三角形，投影后会变成 Visual CW (cross_z > 0)。
+	// 所以我们应该保留 > 0 的，剔除 <= 0 的。
+	// ---------------------------------------------------------
+
+	// 如果结果 <= 0，说明是背面（或退化三角形），返回 true 进行剔除
+	return cross_z <= 0;
+}
+
 // ==========================================
 // draw 函数：几何处理阶段
 // ==========================================
@@ -98,6 +132,11 @@ void Rasterizer::draw(IShader& shader, size_t n_verts) {
 			v_screen[k].z = v_ndc[k].z;
 			// w: 这里的 w 实际上没用了，但为了数据结构统一先放着
 			v_screen[k].w = v_clip[k].w;
+		}
+
+		// 背面剔除检查
+		if (is_back_face(v_screen[0], v_screen[1], v_screen[2])) {
+			continue; // 跳过这个三角形，不画了
 		}
 
 		// F. 进入光栅化阶段

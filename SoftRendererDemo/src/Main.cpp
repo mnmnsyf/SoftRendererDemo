@@ -3,6 +3,10 @@
 #include "Texture.h"
 #include "Geometry.h"
 #include "RenderUtils.h"
+#include "Model.h"
+#include "Camera.h"
+#include <iomanip>  // 用于生成文件名 padding (001.ppm)
+#include <sstream>
 
 // ==========================================
 // 验证测试：Flat vs Gouraud vs Phong
@@ -426,6 +430,117 @@ void scene_image_texture_test() {
 	r.save_to_ppm("output_image_texture.ppm");
 }
 
+void normalize_mesh(Mesh& mesh) {
+	if (mesh.positions.empty()) return;
+
+	// 1. 计算包围盒
+	Vec3f min_box(1e9, 1e9, 1e9);
+	Vec3f max_box(-1e9, -1e9, -1e9);
+
+	for (const auto& p : mesh.positions) {
+		if (p.x < min_box.x) min_box.x = p.x;
+		if (p.y < min_box.y) min_box.y = p.y;
+		if (p.z < min_box.z) min_box.z = p.z;
+
+		if (p.x > max_box.x) max_box.x = p.x;
+		if (p.y > max_box.y) max_box.y = p.y;
+		if (p.z > max_box.z) max_box.z = p.z;
+	}
+
+	// 2. 计算中心点和最大跨度
+	Vec3f center = (max_box + min_box) * 0.5f;
+	float max_dim = std::max(max_box.x - min_box.x, std::max(max_box.y - min_box.y, max_box.z - min_box.z));
+
+	// 3. 归一化所有顶点
+	for (auto& p : mesh.positions) {
+		p = (p - center) * (2.0f / max_dim); // 缩放到 [-1, 1]
+	}
+
+	std::cout << "Mesh Normalized. Center moved from " << center.x << "," << center.y << " to 0,0" << std::endl;
+}
+
+void run_model_loading_test() {
+	// 1. 加载模型
+	Model model("assets/models/model.obj");
+	Mesh mesh = model.get_mesh();
+	normalize_mesh(mesh);
+
+	// 2. 加载对应的纹理
+	Texture tex;
+	tex.loadTexture("assets/models/texture.png");
+	tex.setScale(1.0f);
+
+	// 3. 配置 Shader
+	BlinnPhongShader shader;
+	setup_base_shader(shader, 800, 600);
+	shader.texture = &tex;
+	shader.use_texture = true;
+
+	// 调整模型位置
+	// 只需要平移，不需要缩放了，因为我们已经归一化了
+	shader.model = Mat4::translate(0, 0, -3.0f); // 往 Z 轴深处推 3 米
+	// 配合 LookAt
+	shader.view = Mat4::lookAt(Vec3f(0, 0, 0), Vec3f(0, 0, -1), Vec3f(0, 1, 0));
+
+	bind_mesh_to_shader(mesh, shader);
+
+	Rasterizer r(800, 600);
+	r.clear(Vec3f(0.1f, 0.1f, 0.1f));
+	r.draw(shader, shader.in_positions.size());
+	r.save_to_ppm("obj_test.ppm");
+}
+
+void run_turntable_animation() {
+	std::cout << "Rendering Turntable Animation..." << std::endl;
+
+	// 1. 加载资源
+	Rasterizer r(800, 600);
+	Model model("assets/models/model.obj");
+	Mesh mesh = model.get_mesh();
+
+	normalize_mesh(mesh);
+
+	Texture tex;
+	tex.loadTexture("assets/models/texture.png");
+
+	BlinnPhongShader shader;
+	setup_base_shader(shader, 800, 600);
+	shader.texture = &tex;
+	shader.use_texture = true;
+
+	// 2. 初始化摄像机
+	// 目标看向原点，距离 2.5 米
+	OrbitCamera camera(Vec3f(0, 0, 0), 2.5f);
+
+	//稍微抬高一点视角 (Pitch)
+	camera.phi = 0.3f;
+
+	// 3. 渲染循环 (生成 36 帧)
+	int total_frames = 36;
+	for (int i = 0; i < total_frames; ++i) {
+		r.clear(Vec3f(0.1f, 0.1f, 0.1f));
+
+		// --- 核心：更新 View Matrix ---
+		shader.view = camera.get_view_matrix();
+
+		// 绘制
+		bind_mesh_to_shader(mesh, shader);
+		r.draw(shader, shader.in_positions.size());
+
+		// 保存文件 (frame_000.ppm, frame_001.ppm ...)
+		std::stringstream ss;
+		ss << "output/frame_" << std::setw(3) << std::setfill('0') << i << ".ppm";
+		r.save_to_ppm(ss.str().c_str());
+
+		std::cout << "Rendered frame " << i << "/" << total_frames << "\r";
+
+		// --- 核心：移动摄像机 ---
+		// 每帧转 10 度 (2*PI / 36)
+		camera.orbit(2.0f * 3.14159f / 36.0f, 0.0f);
+	}
+	std::cout << "\nDone!" << std::endl;
+}
+
 int main() {
 	/*run_rainbow_triangle_demo();
 	run_z_buffer_test();
@@ -433,8 +548,9 @@ int main() {
 	run_specular_comparison();
 	run_texture_test();
 	run_integrated_test();*/
+	//scene_image_texture_test();
+	//run_model_loading_test();
+	run_turntable_animation();
 
-	scene_image_texture_test();
-	
     return 0;
 }

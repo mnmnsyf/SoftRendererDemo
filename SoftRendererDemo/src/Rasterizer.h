@@ -65,4 +65,8 @@ private:
 	// 辅助计算重心坐标
 	// 返回 tuple: {alpha, beta, gamma}
 	std::tuple<float, float, float> compute_barycentric_2d(float x, float y, const Vec4f* v);
+
+	// 判断是否是背面
+	// 输入是经过视口变换后的屏幕空间坐标
+	bool is_back_face(const Vec4f& v0, const Vec4f& v1, const Vec4f& v2);
 };

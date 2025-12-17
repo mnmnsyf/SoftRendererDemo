@@ -1,4 +1,4 @@
-// --- 引入 stb_image ---
+﻿// --- 引入 stb_image ---
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "Texture.h"
@@ -8,7 +8,7 @@
 
 
 Texture::Texture()
-	: colorA(1.0f, 1.0f, 1.0f), colorB(0.0f, 0.0f, 0.0f), scale(10.0f) {
+	: colorA(1.0f, 1.0f, 1.0f), colorB(0.0f, 0.0f, 0.0f), scale(1.0f) {
 }
 
 // ==========================================
