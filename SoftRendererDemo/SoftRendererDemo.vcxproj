@@ -139,6 +139,7 @@
     <ClCompile Include="src\Rasterizer.cpp" />
     <ClCompile Include="src\RenderUtils.cpp" />
     <ClCompile Include="src\Shader.cpp" />
+    <ClCompile Include="src\TestCC\TestCC.cpp" />
     <ClCompile Include="src\Texture.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -149,6 +150,7 @@
     <ClInclude Include="src\Rasterizer.h" />
     <ClInclude Include="src\RenderUtils.h" />
     <ClInclude Include="src\Shader.h" />
+    <ClInclude Include="src\TestCC\TestCC.h" />
     <ClInclude Include="src\Texture.h" />
     <ClInclude Include="vendor\stb_image.h" />
   </ItemGroup>
