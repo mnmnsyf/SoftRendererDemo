@@ -1,4 +1,4 @@
-#include "GMath.h"
+﻿#include "GMath.h"
 #include <cmath>
 
 // 辅助宏或常量：角度转弧度
@@ -24,6 +24,11 @@ Vec3f Vec3f::operator+(const Vec3f& rhs) const {
 	return Vec3f(x + rhs.x, y + rhs.y, z + rhs.z);
 }
 
+Vec3f Vec3f::operator+(float scalar) const
+{
+    return Vec3f(x + scalar, y + scalar, z + scalar);
+}
+
 Vec3f Vec3f::operator-(const Vec3f& rhs) const {
 	return Vec3f(x - rhs.x, y - rhs.y, z - rhs.z);
 }
@@ -39,6 +44,20 @@ Vec3f Vec3f::operator/(float scalar) const {
 Vec3f Vec3f::operator*(const Vec3f& v) const
 {
     return Vec3f(x * v.x, y * v.y, z * v.z);
+}
+
+float Vec3f::operator[](int i) const
+{
+	if (i == 0) return x;
+	if (i == 1) return y;
+	return z;
+}
+
+float& Vec3f::operator[](int i)
+{
+	if (i == 0) return x;
+	if (i == 1) return y;
+	return z;
 }
 
 float Vec3f::dot(const Vec3f& rhs) const {

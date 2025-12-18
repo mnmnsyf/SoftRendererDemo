@@ -131,24 +131,36 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\BVH.cpp" />
     <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\Geometry.cpp" />
     <ClCompile Include="src\Main.cpp" />
     <ClCompile Include="src\GMath.cpp" />
     <ClCompile Include="src\Model.cpp" />
+    <ClCompile Include="src\Object.cpp" />
+    <ClCompile Include="src\Primitives.cpp" />
     <ClCompile Include="src\Rasterizer.cpp" />
+    <ClCompile Include="src\Ray.cpp" />
+    <ClCompile Include="src\RayTracer.cpp" />
     <ClCompile Include="src\RenderUtils.cpp" />
+    <ClCompile Include="src\scene.cpp" />
     <ClCompile Include="src\Shader.cpp" />
     <ClCompile Include="src\TestCC\TestCC.cpp" />
     <ClCompile Include="src\Texture.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\BVH.h" />
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\Geometry.h" />
     <ClInclude Include="src\GMath.h" />
     <ClInclude Include="src\Model.h" />
+    <ClInclude Include="src\Object.h" />
+    <ClInclude Include="src\Primitives.h" />
     <ClInclude Include="src\Rasterizer.h" />
+    <ClInclude Include="src\Ray.h" />
+    <ClInclude Include="src\RayTracer.h" />
     <ClInclude Include="src\RenderUtils.h" />
+    <ClInclude Include="src\scene.h" />
     <ClInclude Include="src\Shader.h" />
     <ClInclude Include="src\TestCC\TestCC.h" />
     <ClInclude Include="src\Texture.h" />

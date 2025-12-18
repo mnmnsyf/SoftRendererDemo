@@ -11,6 +11,8 @@ int main() {
 	//run_model_loading_test();
 	//TestCC::run_turntable_animation();
 	// TestCC::run_bezier_curve_test();
-	TestCC::run_bezier_surface_test();
+	//TestCC::run_bezier_surface_test();
+	TestCC::run_ray_tracing_test();
+
     return 0;
 }

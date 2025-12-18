@@ -1,12 +1,18 @@
 ﻿#include "TestCC.h"
 #include <iostream>
+#include <iomanip>  // 用于生成文件名 padding (001.ppm)
+#include <sstream>
 #include "Rasterizer.h"
 #include "Texture.h"
 #include "RenderUtils.h"
 #include "Model.h"
 #include "Camera.h"
-#include <iomanip>  // 用于生成文件名 padding (001.ppm)
-#include <sstream>
+#include "Object.h"     // 包含 AABB
+#include "Primitives.h" 
+#include "BVH.h"
+#include <iosfwd>
+#include "scene.h"
+#include "RayTracer.h"
 
 // ==========================================
 // 验证测试：Flat vs Gouraud vs Phong
@@ -461,7 +467,7 @@ void TestCC::normalize_mesh(Mesh& mesh) {
 
 void TestCC::run_model_loading_test() {
 	// 1. 加载模型
-	Model model("assets/models/model.obj");
+	Model model("assets/models/ace.obj");
 	Mesh mesh = model.get_mesh();
 	normalize_mesh(mesh);
 
@@ -495,7 +501,7 @@ void TestCC::run_turntable_animation() {
 
 	// 1. 加载资源
 	Rasterizer r(800, 600);
-	Model model("assets/models/model.obj");
+	Model model("assets/models/ace.obj");
 	Mesh mesh = model.get_mesh();
 
 	normalize_mesh(mesh);
@@ -642,4 +648,54 @@ void TestCC::run_bezier_surface_test() {
 
 	r.save_to_ppm("bezier_patch_mesh.ppm");
 	std::cout << "Done. Vertices: " << mesh.positions.size() << std::endl;
+}
+
+void TestCC::run_ray_tracing_test()
+{
+	// --- 1. 初始化 ---
+	int width = 800;
+	int height = 600;
+	Rasterizer rst(width, height);
+
+	// 2. 调整相机位置
+	OrbitCamera camera(Vec3f(-1, 1, 0), 15.0f);
+	//OrbitCamera camera(Vec3f(0, 0, 0), 3.0f);
+	camera.aspect = (float)width / height;
+	// 你可以调整 theta/phi 来改变视角
+	camera.phi = 0.2f;
+
+	// 3. 加载模型 & 构建场景
+	std::cout << "Loading Model..." << std::endl;
+	Model ace_model("assets/models/ace.obj");
+	Mesh mesh = ace_model.get_mesh();
+	normalize_mesh(mesh);
+
+	Scene scene;
+	scene.add_model(ace_model); // 自动转换为三角形列表
+	/*// 添加一个球体 (绿色小球)
+	scene.add_object(new Sphere(Vec3f(0, 0, -1), 0.5f));
+	// 添加一个巨大的球体作为地板
+	scene.add_object(new Sphere(Vec3f(0, -100.5f, -1), 100.0f));
+	// 添加一个三角形 (放在右边)
+	scene.add_object(new Triangle(
+		Vec3f(0.8f, 0.0f, -0.5f),   // v0
+		Vec3f(1.5f, 0.0f, -0.5f),   // v1
+		Vec3f(1.15f, 0.7f, -1.0f)   // v2 (稍微向后倾斜)
+	));*/
+
+
+	std::cout << "Building scene..." << std::endl;
+	scene.build(); // 构建加速结构
+
+
+	// 4. 创建渲染器并运行
+	RayTracer tracer(&rst, &scene, &camera);
+
+	std::cout << "Start Ray Tracing..." << std::endl;
+	tracer.render();
+
+	// 5. 保存结果
+	rst.save_to_ppm("output_ace_rt.ppm");
+
+	return;
 }

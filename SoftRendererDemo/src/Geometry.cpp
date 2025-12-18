@@ -1,6 +1,9 @@
 ﻿#include "Geometry.h"
 #include <cmath>
 
+// ========================================================================
+// generate_mesh
+// ========================================================================
 namespace Geometry {
 	Mesh generate_sphere(float radius, int slices, int stacks) {
 		Mesh mesh;
@@ -156,7 +159,7 @@ namespace Geometry {
 }
 
 // ==========================================
-// De Casteljau 算法实现
+// Bezier 实现
 // ==========================================
 namespace Geometry {
 	// 核心求值函数 (递归版 De Casteljau)

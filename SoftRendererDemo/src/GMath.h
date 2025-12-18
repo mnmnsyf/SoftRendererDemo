@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <cmath>
 
 struct Vec2f {
@@ -17,14 +17,19 @@ struct Vec3f {
     float x, y, z;
     // 1. 构造函数
     Vec3f() : x(0), y(0), z(0) {}
+    Vec3f(float scalar) : x(scalar), y(scalar), z(scalar) {}
     Vec3f(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
 
     // 2. 基础运算
+    Vec3f operator+(float scalar) const; // 加法 (向量 + 标量)
     Vec3f operator+(const Vec3f& rhs) const; // 加法
     Vec3f operator-(const Vec3f& rhs) const; // 减法
     Vec3f operator*(float scalar) const;    // 数乘 (向量 * 标量)
     Vec3f operator/(float scalar) const;    // 除法
     Vec3f operator*(const Vec3f& v) const;  // 向量与向量的分量相乘 (Hadamard Product)
+
+    float operator[](int i) const;          // 访问x, y, z 成员变量
+    float& operator[](int i);               
 
     // 3. 高级运算
     float dot(const Vec3f& rhs) const;       // 点乘

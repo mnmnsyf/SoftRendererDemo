@@ -10,6 +10,7 @@ struct Mesh {
 	std::vector<int> indices;
 };
 
+
 // 几何体生成工厂函数
 namespace Geometry {
 	// --- 3D 几何体生成 ---
