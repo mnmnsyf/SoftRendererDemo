@@ -59,6 +59,7 @@ Ray OrbitCamera::get_ray(float s, float t) const
 	Vec3f vertical = up * (2.0f * half_height);
 
 	// 生成射线 Dir = lower_left + u*hori + v*vert - origin
+	// 利用输入的纹理坐标 (s, t)（范围 0~1）在屏幕上进行线性插值，找到目标像素的世界坐标
 	Vec3f dir = lower_left_corner + horizontal * s + vertical * t - eye;
 	return Ray(eye, dir.normalize());
 }

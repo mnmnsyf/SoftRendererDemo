@@ -39,7 +39,7 @@ public:
 	Rasterizer(int w, int h);
 
 	// 基础功能
-	Vec2f GetScreenSize() const { return Vec2f(width, height); }
+	const Vec2f& GetScreenSize() { return Vec2f(width, height); }
 	void clear(const Vec3f& color);
 	void set_pixel(int x, int y, const Vec3f& color);
 	void save_to_ppm(const char* filename);

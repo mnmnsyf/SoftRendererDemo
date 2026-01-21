@@ -22,7 +22,7 @@ public:
 		: target(t), radius(r), theta(0.0f), phi(0.0f) {
 	}
 
-	// 根据当前的 theta, phi, radius 计算 View Matrix
+	// 根据当前的 theta, phi, radius 计算 View Matrix (World to Camera)
 	Mat4 get_view_matrix();
 
 	// 模拟鼠标拖动：水平移动改 theta，垂直移动改 phi
@@ -31,6 +31,6 @@ public:
 	// 模拟滚轮缩放
 	void zoom(float d_radius);
 
-	// 光线追踪专用：生成光线
+	// 光线追踪专用：生成光线 (Camera to World)
 	Ray get_ray(float u, float v) const;
 };

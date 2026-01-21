@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <cmath>
+#include <random> 
 
 struct Vec2f {
 	float x, y;
@@ -97,3 +98,4 @@ struct GMath {
 		return a + (b - a) * t;
 	}
 };
+
