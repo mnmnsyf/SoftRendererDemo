@@ -8,7 +8,7 @@ void RayTracer::render()
 	int height = ScreenSize.y;
 
 	for (int j = 0; j < height; ++j) {
-		// 可选：打印进度
+		// 打印进度
 		if (j % 50 == 0) std::cout << "Rendering line " << j << std::endl;
 
 		for (int i = 0; i < width; ++i) {
